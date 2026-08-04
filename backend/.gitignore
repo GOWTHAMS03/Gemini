@@ -1,0 +1,32 @@
+# Maven Target & Build Outputs
+target/
+build/
+.gradle/
+out/
+bin/
+
+# IDE Files
+.settings/
+.classpath
+.project
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Logs & Dump files
+*.log
+logs/
+hs_err_pid*
+replay_pid*
+
+# Compiled Class Files
+*.class
+*.jar
+*.war
+*.ear
+
+# Environment & Config Overrides
+application-local.yml
+application-dev.yml
+.env

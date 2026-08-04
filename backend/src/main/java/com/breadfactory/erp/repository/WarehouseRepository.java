@@ -1,0 +1,15 @@
+package com.breadfactory.erp.repository;
+
+import com.breadfactory.erp.entity.Warehouse;
+import com.breadfactory.erp.enums.WarehouseType;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface WarehouseRepository extends JpaRepository<Warehouse, Long> {
+    Optional<Warehouse> findByWarehouseCode(String warehouseCode);
+    List<Warehouse> findByType(WarehouseType type);
+}
