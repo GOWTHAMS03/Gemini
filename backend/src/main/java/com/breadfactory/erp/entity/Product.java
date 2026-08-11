@@ -30,14 +30,18 @@ public class Product {
     @Column(unique = true, length = 100)
     private String barcode;
 
-    @Column(name = "qr_code", unique = true, length = 100)
-    private String qrCode;
+    @Column(name = "image_url", length = 500)
+    private String imageUrl;
 
     @Column(name = "weight_grams", precision = 8, scale = 2)
     private BigDecimal weightGrams;
 
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal mrp;
+
+    @Builder.Default
+    @Column(name = "minimum_selling_price", precision = 10, scale = 2)
+    private BigDecimal minimumSellingPrice = BigDecimal.valueOf(48.00);
 
     @Column(name = "dealer_price", nullable = false, precision = 10, scale = 2)
     private BigDecimal dealerPrice;

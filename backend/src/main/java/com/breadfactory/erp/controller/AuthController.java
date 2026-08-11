@@ -27,4 +27,9 @@ public class AuthController {
     public ResponseEntity<User> register(@Valid @RequestBody RegisterRequest registerRequest) {
         return ResponseEntity.ok(authService.registerUser(registerRequest));
     }
+
+    @ExceptionHandler(org.springframework.security.core.AuthenticationException.class)
+    public ResponseEntity<String> handleAuthenticationException(org.springframework.security.core.AuthenticationException e) {
+        return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).body(e.getMessage());
+    }
 }

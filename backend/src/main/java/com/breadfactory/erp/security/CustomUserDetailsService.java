@@ -21,6 +21,13 @@ public class CustomUserDetailsService implements UserDetailsService {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with username: " + username));
 
+        boolean isSalesPerson = user.getRoles().stream()
+                .anyMatch(r -> r.getName().name().equals("ROLE_SALES_EXECUTIVE") || r.getName().name().equals("ROLE_DRIVER"));
+
+        if (isSalesPerson && user.getMobileAccessEnabled() != null && !user.getMobileAccessEnabled()) {
+            throw new org.springframework.security.authentication.DisabledException("You don't have access. Contact admin team.");
+        }
+
         return UserPrincipal.create(user);
     }
 }

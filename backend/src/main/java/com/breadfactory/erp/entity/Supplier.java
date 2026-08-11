@@ -41,6 +41,10 @@ public class Supplier {
     @Column(columnDefinition = "TEXT")
     private String address;
 
+    @Builder.Default
+    @Column(name = "outstanding_balance", precision = 12, scale = 2)
+    private java.math.BigDecimal outstandingBalance = java.math.BigDecimal.ZERO;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private ZonedDateTime createdAt;

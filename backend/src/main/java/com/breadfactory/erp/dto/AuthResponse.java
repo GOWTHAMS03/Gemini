@@ -11,10 +11,12 @@ import java.util.Set;
 @Builder
 public class AuthResponse {
     private String accessToken;
+    @Builder.Default
     private String tokenType = "Bearer";
     private Long id;
     private String username;
     private String fullName;
     private String email;
     private Set<String> roles;
+    private Boolean mobileAccessEnabled;
 }

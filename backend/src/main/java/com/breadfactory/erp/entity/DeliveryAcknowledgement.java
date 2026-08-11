@@ -20,6 +20,7 @@ public class DeliveryAcknowledgement {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "delivery_id", nullable = false, unique = true)
     private Delivery delivery;

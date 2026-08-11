@@ -44,7 +44,7 @@ public class Shop {
 
     @Builder.Default
     @Column(name = "credit_limit", precision = 12, scale = 2)
-    private BigDecimal creditLimit = BigDecimal.valueOf(5000);
+    private BigDecimal creditLimit = BigDecimal.ZERO;
 
     @Builder.Default
     @Column(name = "outstanding_amount", precision = 12, scale = 2)
@@ -57,8 +57,29 @@ public class Shop {
     private BigDecimal longitude;
 
     @Builder.Default
+    @Column(name = "location_accuracy", precision = 8, scale = 2)
+    private BigDecimal locationAccuracy = BigDecimal.valueOf(5.0);
+
+    @Column(name = "area_name", length = 150)
+    private String areaName;
+
+    @Builder.Default
+    @Column(name = "customer_type", length = 30)
+    private String customerType = "SHOP";
+
+    @Builder.Default
+    @Column(name = "discount_percent", precision = 5, scale = 2)
+    private BigDecimal discountPercent = BigDecimal.valueOf(8.00);
+
+    @Builder.Default
     @Column(name = "is_active")
     private Boolean isActive = true;
+
+    @Column(name = "created_by", length = 150)
+    private String createdBy;
+
+    @Column(name = "sales_executive_code", length = 50)
+    private String salesExecutiveCode;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

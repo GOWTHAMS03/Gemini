@@ -18,6 +18,7 @@ public class InvoiceItem {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "invoice_id", nullable = false)
     private Invoice invoice;
@@ -34,4 +35,8 @@ public class InvoiceItem {
 
     @Column(name = "total_price", nullable = false, precision = 12, scale = 2)
     private BigDecimal totalPrice;
+
+    @Builder.Default
+    @Column(name = "returned_quantity", nullable = false)
+    private Integer returnedQuantity = 0;
 }

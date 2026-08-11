@@ -54,6 +54,7 @@ public class AuthService {
                 .fullName(userPrincipal.getFullName())
                 .email(userPrincipal.getEmail())
                 .roles(roles)
+                .mobileAccessEnabled(userPrincipal.getMobileAccessEnabled())
                 .build();
     }
 

@@ -11,4 +11,6 @@ import java.util.Optional;
 public interface ShopRepository extends JpaRepository<Shop, Long> {
     Optional<Shop> findByShopCode(String shopCode);
     List<Shop> findByRouteName(String routeName);
+    List<Shop> findByCreatedBy(String createdBy);
+    List<Shop> findBySalesExecutiveCode(String salesExecutiveCode);
 }

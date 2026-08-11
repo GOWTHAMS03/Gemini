@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: 9023
   servlet:
     context-path: /api/v1
 
@@ -8,7 +8,7 @@ spring:
     name: bread-factory-erp
   
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/bread_erp_db}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://127.0.0.1:5433/bread_erp_db}
     username: ${SPRING_DATASOURCE_USERNAME:erp_admin}
     password: ${SPRING_DATASOURCE_PASSWORD:erp_secret_password}
     driver-class-name: org.postgresql.Driver
@@ -25,14 +25,22 @@ spring:
 
   data:
     redis:
-      host: ${SPRING_REDIS_HOST:localhost}
+      host: ${SPRING_REDIS_HOST:127.0.0.1}
       port: ${SPRING_REDIS_PORT:6379}
+      password: ${SPRING_REDIS_PASSWORD:}
+      ssl:
+        enabled: ${SPRING_REDIS_SSL_ENABLED:false}
 
 app:
   jwt:
     secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
     expiration-ms: 86400000 # 24 hours
     refresh-expiration-ms: 604800000 # 7 days
+
+cloudinary:
+  cloud-name: ${CLOUDINARY_CLOUD_NAME:diww3cwqd}
+  api-key: ${CLOUDINARY_API_KEY:182413739163318}
+  api-secret: ${CLOUDINARY_API_SECRET:b6I9zFSccMcL-cMhpKAQ8_3_6wY}
 
 springdoc:
   api-docs:

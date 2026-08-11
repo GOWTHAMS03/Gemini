@@ -1,0 +1,164 @@
+name: CI/CD Pipeline - AWS EC2 Deployment
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  BACKEND_IMAGE_NAME: ${{ github.repository }}/backend
+  FRONTEND_IMAGE_NAME: ${{ github.repository }}/admin-dashboard
+
+jobs:
+  # ============================================================================
+  # JOB 1: BUILD & TEST SERVICES
+  # ============================================================================
+  build-and-test:
+    name: Build & Test Services
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # ─── Java & Spring Boot Setup ──────────────────────────────────────────
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Test Spring Boot Backend
+        run: |
+          cd backend
+          mvn clean test -Dspring.profiles.active=test
+
+      # ─── Node.js & React Setup ─────────────────────────────────────────────
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: admin-dashboard/package-lock.json
+
+      - name: Build React Admin Dashboard
+        run: |
+          cd admin-dashboard
+          npm ci
+          npm run build
+
+  # ============================================================================
+  # JOB 2: DOCKER BUILD & PUSH TO GHCR
+  # ============================================================================
+  build-and-push-docker:
+    name: Docker Build & Push
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # ─── Build & Push Spring Boot Image ────────────────────────────────────
+      - name: Extract metadata for Backend
+        id: meta-backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=
+            type=raw,value=latest
+
+      - name: Build & Push Spring Boot Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # ─── Build & Push React Dashboard Image ────────────────────────────────
+      - name: Extract metadata for Frontend
+        id: meta-frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=
+            type=raw,value=latest
+
+      - name: Build & Push React Dashboard Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./admin-dashboard
+          file: ./admin-dashboard/Dockerfile
+          push: true
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ============================================================================
+  # JOB 3: SSH DEPLOY TO AWS EC2
+  # ============================================================================
+  deploy-to-ec2:
+    name: Deploy to AWS EC2
+    needs: build-and-push-docker
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Deploy Container Updates via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME || 'ubuntu' }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: ${{ secrets.EC2_SSH_PORT || 22 }}
+          script: |
+            set -e
+            echo "==> Navigating to deployment folder..."
+            mkdir -p ~/app
+            cd ~/app
+
+            echo "==> Logging into GitHub Container Registry..."
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            echo "==> Updating docker-compose.prod.yml..."
+            cat << 'EOF' > docker-compose.prod.yml
+            ${{ secrets.DOCKER_COMPOSE_PROD_CONTENT }}
+            EOF
+
+            echo "==> Pulling latest container images..."
+            docker compose -f docker-compose.prod.yml pull
+
+            echo "==> Starting updated containers..."
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+
+            echo "==> Cleaning up unused docker images..."
+            docker image prune -f
+
+            echo "==> Deployment Complete! Verification status:"
+            docker compose -f docker-compose.prod.yml ps

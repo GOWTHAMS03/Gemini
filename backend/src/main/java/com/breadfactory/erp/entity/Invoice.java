@@ -43,6 +43,14 @@ public class Invoice {
     private BigDecimal subtotal;
 
     @Builder.Default
+    @Column(name = "customer_type", length = 30)
+    private String customerType = "SHOP";
+
+    @Builder.Default
+    @Column(name = "discount_percent", precision = 5, scale = 2)
+    private BigDecimal discountPercent = BigDecimal.ZERO;
+
+    @Builder.Default
     @Column(name = "discount_amount", precision = 12, scale = 2)
     private BigDecimal discountAmount = BigDecimal.ZERO;
 
@@ -61,6 +69,17 @@ public class Invoice {
     @Column(name = "payment_status", nullable = false, length = 30)
     @Builder.Default
     private PaymentStatus paymentStatus = PaymentStatus.PAID;
+
+    @Builder.Default
+    @Column(name = "return_credit_applied", precision = 12, scale = 2)
+    private BigDecimal returnCreditApplied = BigDecimal.ZERO;
+
+    @Column(name = "net_payable_amount", precision = 12, scale = 2)
+    private BigDecimal netPayableAmount;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "credit_note_id")
+    private CreditNote creditNote;
 
     @OneToMany(mappedBy = "invoice", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default

@@ -24,6 +24,8 @@ public class UserPrincipal implements UserDetails {
     @JsonIgnore
     private String password;
 
+    private Boolean mobileAccessEnabled;
+
     private Collection<? extends GrantedAuthority> authorities;
 
     public static UserPrincipal create(User user) {
@@ -37,6 +39,7 @@ public class UserPrincipal implements UserDetails {
                 user.getFullName(),
                 user.getEmail(),
                 user.getPassword(),
+                user.getMobileAccessEnabled(),
                 authorities
         );
     }

@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  backend:
+    image: ${DOCKER_REGISTRY:-ghcr.io}/${GH_REPO_OWNER:-b2b}/backend:${IMAGE_TAG:-latest}
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: b2b_backend_prod
+    restart: always
+    ports:
+      - "9023:9023"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${RDS_ENDPOINT:localhost}:5432/${POSTGRES_DB:bread_erp_db}?sslmode=require
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:erp_admin}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_REDIS_HOST: ${ELASTICACHE_HOST:localhost}
+      SPRING_REDIS_PORT: ${ELASTICACHE_PORT:-6379}
+      SPRING_REDIS_PASSWORD: ${ELASTICACHE_PASSWORD:-}
+      SPRING_REDIS_SSL_ENABLED: ${ELASTICACHE_SSL:-false}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      JWT_REFRESH_EXPIRATION_MS: ${JWT_REFRESH_EXPIRATION_MS:-604800000}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 9023 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  admin-dashboard:
+    image: ${DOCKER_REGISTRY:-ghcr.io}/${GH_REPO_OWNER:-b2b}/admin-dashboard:${IMAGE_TAG:-latest}
+    build:
+      context: ./admin-dashboard
+      dockerfile: Dockerfile
+    container_name: b2b_admin_dashboard_prod
+    restart: always
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  default:
+    name: b2b_prod_network

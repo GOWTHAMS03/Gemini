@@ -51,8 +51,8 @@ Core Entities:
 docker-compose up --build
 ```
 - **React Admin Web**: `http://localhost:3000`
-- **Spring Boot API**: `http://localhost:8080/api/v1`
-- **Swagger Documentation**: `http://localhost:8080/api/v1/swagger-ui.html`
+- **Spring Boot API**: `http://localhost:9023/api/v1`
+- **Swagger Documentation**: `http://localhost:9023/api/v1/swagger-ui.html`
 
 ### Option 2: Running Backend Locally
 ```bash
