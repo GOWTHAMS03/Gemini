@@ -5,9 +5,9 @@ variable "aws_region" {
 }
 
 variable "domain_name" {
-  description = "Domain name registered in AWS Route 53"
+  description = "Domain name registered in AWS Route 53 (Optional - leave empty for IP deployment)"
   type        = string
-  default     = "yourdomain.com"
+  default     = ""
 }
 
 variable "environment" {

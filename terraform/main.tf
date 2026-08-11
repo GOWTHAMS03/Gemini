@@ -313,25 +313,20 @@ resource "aws_elasticache_cluster" "redis" {
 }
 
 # ==============================================================================
-# 6. ROUTE 53 DNS RECORD
+# 6. ROUTE 53 DNS RECORD (OPTIONAL - ONLY IF DOMAIN_NAME IS PROVIDED)
 # ==============================================================================
 data "aws_route53_zone" "primary" {
+  count        = var.domain_name != "" && var.domain_name != "yourdomain.com" ? 1 : 0
   name         = var.domain_name
   private_zone = false
 }
 
 resource "aws_route53_record" "apex" {
-  zone_id = data.aws_route53_zone.primary.zone_id
+  count   = length(data.aws_route53_zone.primary) > 0 ? 1 : 0
+  zone_id = data.aws_route53_zone.primary[0].zone_id
   name    = var.domain_name
   type    = "A"
   ttl     = 300
   records = [aws_eip.app_eip.public_ip]
 }
 
-resource "aws_route53_record" "www" {
-  zone_id = data.aws_route53_zone.primary.zone_id
-  name    = "www.${var.domain_name}"
-  type    = "A"
-  ttl     = 300
-  records = [aws_eip.app_eip.public_ip]
-}
