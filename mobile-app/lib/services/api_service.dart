@@ -13,11 +13,10 @@ class ApiException implements Exception {
 }
 
 class ApiService {
-  // Use your computer's local Wi-Fi IP address so the physical mobile phone connected to the same Wi-Fi can communicate with your backend.
+  // Production AWS EC2 Server IP
+  static const String _PROD_IP = '3.107.97.45';
   static const String _WIFI_IP = '192.168.0.109'; 
-  static const String _LOCAL_IP = '10.0.2.2'; // Standard Android emulator loopback to host localhost
-  static const String _LOCALHOST = 'localhost';
-  static const int _PORT = 9023;
+  static const String _LOCAL_IP = '10.0.2.2'; // Standard Android emulator loopback
   static const String _API_VERSION = 'v1';
 
   static late String _baseUrl;
@@ -31,30 +30,41 @@ class ApiService {
 
   ApiService._internal();
 
+  static String _formatUrl(String hostOrIp) {
+    String clean = hostOrIp.trim().replaceAll('http://', '').replaceAll('https://', '');
+    if (clean.endsWith('/')) clean = clean.substring(0, clean.length - 1);
+    if (clean.endsWith('/api/v1')) return 'http://$clean';
+    if (clean.contains(':')) {
+      return 'http://$clean/api/$_API_VERSION';
+    }
+    return 'http://$clean/api/$_API_VERSION';
+  }
+
   static Future<void> initialize(SharedPreferences prefs) async {
     _prefs = prefs;
     
     // 1. Check if user set custom IP or previously confirmed working IP
     final savedIp = _prefs?.getString('custom_server_ip') ?? _prefs?.getString('last_working_ip');
     if (savedIp != null && savedIp.isNotEmpty) {
-      _baseUrl = 'http://$savedIp:$_PORT/api/$_API_VERSION';
+      _baseUrl = _formatUrl(savedIp);
       return;
     }
 
-    // 2. Default immediately to standard IP for instant availability
-    _baseUrl = 'http://$_WIFI_IP:$_PORT/api/$_API_VERSION';
+    // 2. Default immediately to AWS EC2 Production Server
+    _baseUrl = _formatUrl(_PROD_IP);
 
-    // 3. Fast parallel candidate check (with 600ms timeout) without blocking
-    final candidateIps = [_WIFI_IP, _LOCAL_IP, _LOCALHOST, '127.0.0.1'];
+    // 3. Candidate check in background
+    final candidateIps = [_PROD_IP, _WIFI_IP, _LOCAL_IP];
     try {
       await Future.any(candidateIps.map((ip) async {
         try {
+          final targetUrl = _formatUrl(ip);
           final res = await http.get(
-            Uri.parse('http://$ip:$_PORT/api/$_API_VERSION/products'),
-          ).timeout(const Duration(milliseconds: 600));
+            Uri.parse('$targetUrl/products'),
+          ).timeout(const Duration(milliseconds: 1000));
 
           if (res.statusCode >= 200 && res.statusCode < 500) {
-            _baseUrl = 'http://$ip:$_PORT/api/$_API_VERSION';
+            _baseUrl = targetUrl;
             _prefs?.setString('last_working_ip', ip);
             return ip;
           }
@@ -67,10 +77,10 @@ class ApiService {
   }
 
   static void setServerIp(String ip) {
-    String cleanIp = ip.trim().replaceAll('http://', '').replaceAll('https://', '').split('/')[0].split(':')[0];
-    if (cleanIp.isEmpty) cleanIp = '10.0.2.2';
-    _baseUrl = 'http://$cleanIp:$_PORT/api/$_API_VERSION';
-    _prefs?.setString('custom_server_ip', cleanIp);
+    String clean = ip.trim();
+    if (clean.isEmpty) clean = _PROD_IP;
+    _baseUrl = _formatUrl(clean);
+    _prefs?.setString('custom_server_ip', clean);
   }
 
   static String get baseUrl => _baseUrl;
