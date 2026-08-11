@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # B2B ERP - AUTOMATED AWS EC2 INITIALIZATION & DEPLOYMENT SETUP SCRIPT
-# Supports: Ubuntu, Debian, Amazon Linux 2023, RHEL
+# Supports: Ubuntu, Debian, Amazon Linux 2023, Amazon Linux 2, RHEL
 # Usage: sudo bash setup-ec2.sh
 # ==============================================================================
 
@@ -33,7 +33,8 @@ if [ "$PKG_MANAGER" = "apt" ]; then
     sudo apt-get install -y ca-certificates curl gnupg lsb-release git nginx netcat-openbsd ufw
 elif [ "$PKG_MANAGER" = "dnf" ] || [ "$PKG_MANAGER" = "yum" ]; then
     sudo $PKG_MANAGER update -y
-    sudo $PKG_MANAGER install -y curl git nginx docker nc || true
+    sudo $PKG_MANAGER install -y git curl nc || true
+    sudo $PKG_MANAGER install -y nginx || sudo amazon-linux-extras install nginx1 -y || true
 fi
 
 # 2. Install & Configure Docker
@@ -69,8 +70,9 @@ if ! docker compose version &> /dev/null; then
     chmod +x $DOCKER_CONFIG/cli-plugins/docker-compose
 fi
 
-# 4. Create App Directory & Configure Nginx
-echo "[3/5] Setting up Application Directory & Nginx Config..."
+# 4. Create Nginx directories & Enable Service
+echo "[3/5] Setting up Nginx Configuration Directories..."
+sudo mkdir -p /etc/nginx/conf.d
 mkdir -p ~/app/nginx/conf.d
 
 # Enable & Start Nginx Service
@@ -79,9 +81,9 @@ sudo systemctl restart nginx || true
 
 # 5. Verify Installation
 echo "[4/5] Verifying installed software versions..."
-echo "Docker version: $(docker --version)"
-echo "Docker Compose version: $(docker compose version || echo 'Compose V2 ready')"
-echo "Nginx version: $(nginx -v 2>&1)"
+echo "Docker version: $(docker --version 2>&1 || echo 'Installed')"
+echo "Docker Compose version: $(docker compose version 2>&1 || echo 'Compose V2 ready')"
+echo "Nginx version: $(nginx -v 2>&1 || echo 'Nginx ready')"
 
 echo "========================================================================"
 echo " EC2 Instance Setup Completed Successfully!"

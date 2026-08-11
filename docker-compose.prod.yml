@@ -11,25 +11,19 @@ services:
     ports:
       - "9023:9023"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://${RDS_ENDPOINT:localhost}:5432/${POSTGRES_DB:bread_erp_db}?sslmode=require
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:erp_admin}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
-      SPRING_REDIS_HOST: ${ELASTICACHE_HOST:localhost}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${RDS_ENDPOINT:-localhost}:5432/${POSTGRES_DB:-bread_erp_db}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-erp_admin}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-erp_secret_password}
+      SPRING_REDIS_HOST: ${ELASTICACHE_HOST:-localhost}
       SPRING_REDIS_PORT: ${ELASTICACHE_PORT:-6379}
       SPRING_REDIS_PASSWORD: ${ELASTICACHE_PASSWORD:-}
       SPRING_REDIS_SSL_ENABLED: ${ELASTICACHE_SSL:-false}
-      JWT_SECRET: ${JWT_SECRET}
+      JWT_SECRET: ${JWT_SECRET:-404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
       JWT_REFRESH_EXPIRATION_MS: ${JWT_REFRESH_EXPIRATION_MS:-604800000}
-      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
-      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
-      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
-    healthcheck:
-      test: ["CMD-SHELL", "nc -z 127.0.0.1 9023 || exit 1"]
-      interval: 15s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-diww3cwqd}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-182413739163318}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-b6I9zFSccMcL-cMhpKAQ8_3_6wY}
     logging:
       driver: "json-file"
       options:
@@ -46,8 +40,7 @@ services:
     ports:
       - "3000:80"
     depends_on:
-      backend:
-        condition: service_healthy
+      - backend
     logging:
       driver: "json-file"
       options:
