@@ -33,8 +33,8 @@ if [ "$PKG_MANAGER" = "apt" ]; then
     sudo apt-get install -y ca-certificates curl gnupg lsb-release git nginx netcat-openbsd ufw
 elif [ "$PKG_MANAGER" = "dnf" ] || [ "$PKG_MANAGER" = "yum" ]; then
     sudo $PKG_MANAGER update -y
-    sudo $PKG_MANAGER install -y git curl nc || true
-    sudo $PKG_MANAGER install -y nginx || sudo amazon-linux-extras install nginx1 -y || true
+    sudo $PKG_MANAGER install -y git nc --allowerasing || true
+    sudo $PKG_MANAGER install -y nginx --allowerasing || sudo amazon-linux-extras install nginx1 -y || true
 fi
 
 # 2. Install & Configure Docker
@@ -49,7 +49,7 @@ if ! command -v docker &> /dev/null; then
         sudo apt-get update -y
         sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
     elif [ "$PKG_MANAGER" = "dnf" ] || [ "$PKG_MANAGER" = "yum" ]; then
-        sudo $PKG_MANAGER install -y docker
+        sudo $PKG_MANAGER install -y docker --allowerasing || true
     fi
 fi
 
