@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import api from '../services/apiService';
+import React, { useState, useEffect, useMemo } from 'react';
+import api, { mediaApi, employeeApi, CloudinaryDlDocument } from '../services/apiService';
+import { CustomSelect, CustomDatePicker, Toast } from '../components/common';
 import { 
   Truck, 
   Plus, 
@@ -28,7 +29,14 @@ import {
   FileText,
   Activity,
   Gauge,
-  Phone
+  Phone,
+  Upload,
+  Folder,
+  Eye,
+  Download,
+  FileBadge,
+  ExternalLink,
+  Image as ImageIcon
 } from 'lucide-react';
 
 export interface VehicleItem {
@@ -49,6 +57,7 @@ export interface VehicleItem {
   assignedRoute: string;
   complianceBadge: 'FULLY_COMPLIANT' | 'RENEWAL_DUE';
   rcDocumentName?: string;
+  rcDocumentUrl?: string;
 }
 
 export const TripsPage: React.FC = () => {
@@ -66,6 +75,15 @@ export const TripsPage: React.FC = () => {
   const [editingVehicle, setEditingVehicle] = useState<VehicleItem | null>(null);
   const [selectedVehicleDoc, setSelectedVehicleDoc] = useState<VehicleItem | null>(null);
 
+  // Cloudinary DL & RC Management
+  const [isUploadingDoc, setIsUploadingDoc] = useState(false);
+  const [showCloudinaryPicker, setShowCloudinaryPicker] = useState(false);
+  const [cloudinaryTarget, setCloudinaryTarget] = useState<'DRIVER_DL' | 'VEHICLE_RC'>('DRIVER_DL');
+  const [cloudinaryFiles, setCloudinaryFiles] = useState<CloudinaryDlDocument[]>([]);
+  const [isLoadingCloudinary, setIsLoadingCloudinary] = useState(false);
+  const [previewModalUrl, setPreviewModalUrl] = useState<string | null>(null);
+  const [cloudinarySearch, setCloudinarySearch] = useState('');
+
   // Form State
   const [vehicleForm, setVehicleForm] = useState({
     vehicleNumber: '',
@@ -81,12 +99,102 @@ export const TripsPage: React.FC = () => {
     assignedDriver: '',
     driverPhone: '',
     assignedRoute: 'Unassigned (Assigned at Dispatch)',
-    rcDocumentName: 'RC_Certificate_Verified.pdf'
+    rcDocumentName: 'RC_Certificate_Verified.pdf',
+    rcDocumentUrl: ''
   });
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
     setTimeout(() => setToastMsg(null), 4000);
+  };
+
+  const selectedDriverObj = useMemo(() => {
+    if (!vehicleForm.assignedDriver) return null;
+    return drivers.find(d => (d.fullName || d.name) === vehicleForm.assignedDriver);
+  }, [drivers, vehicleForm.assignedDriver]);
+
+  const handleUploadDriverDl = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUploadingDoc(true);
+      const res = await mediaApi.uploadDriverDl(file, vehicleForm.assignedDriver || 'driver');
+      if (res.data?.secure_url) {
+        const uploadedUrl = res.data.secure_url;
+        showToast('Driver DL uploaded to Cloudinary (bread_erp/drivers/dl)!');
+
+        const matched = drivers.find((d: any) => (d.fullName || d.name) === vehicleForm.assignedDriver);
+        if (matched) {
+          try {
+            await employeeApi.update(matched.id, { dlDocumentUrl: uploadedUrl });
+          } catch (ignored) {}
+          setDrivers(prev => prev.map(d => d.id === matched.id ? { ...d, dlDocumentUrl: uploadedUrl } : d));
+        }
+      }
+    } catch (err: any) {
+      console.error('Error uploading driver DL:', err);
+      showToast('Cloudinary DL upload failed: ' + (err.response?.data?.error || err.message));
+    } finally {
+      setIsUploadingDoc(false);
+    }
+  };
+
+  const handleUploadRcDoc = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUploadingDoc(true);
+      const res = await mediaApi.uploadImage(file, 'bread_erp/fleet/rc');
+      if (res.data?.secure_url) {
+        setVehicleForm(prev => ({
+          ...prev,
+          rcDocumentName: file.name,
+          rcDocumentUrl: res.data.secure_url,
+        }));
+        showToast('RC Certificate uploaded to Cloudinary (bread_erp/fleet/rc)!');
+      }
+    } catch (err: any) {
+      console.error('Error uploading RC to Cloudinary:', err);
+      showToast('RC upload failed: ' + (err.response?.data?.error || err.message));
+    } finally {
+      setIsUploadingDoc(false);
+    }
+  };
+
+  const handleOpenCloudinaryPicker = async (target: 'DRIVER_DL' | 'VEHICLE_RC') => {
+    try {
+      setCloudinaryTarget(target);
+      setIsLoadingCloudinary(true);
+      setShowCloudinaryPicker(true);
+      const res = await mediaApi.getDriverDlDocuments();
+      setCloudinaryFiles(res.data?.documents || []);
+    } catch (err) {
+      console.error('Error loading Cloudinary files:', err);
+      showToast('Failed to retrieve documents from Cloudinary');
+    } finally {
+      setIsLoadingCloudinary(false);
+    }
+  };
+
+  const handleSelectCloudinaryDoc = (file: CloudinaryDlDocument) => {
+    if (cloudinaryTarget === 'DRIVER_DL') {
+      const matched = drivers.find((d: any) => (d.fullName || d.name) === vehicleForm.assignedDriver);
+      if (matched) {
+        employeeApi.update(matched.id, { dlDocumentUrl: file.secure_url }).catch(() => {});
+        setDrivers(prev => prev.map(d => d.id === matched.id ? { ...d, dlDocumentUrl: file.secure_url } : d));
+      }
+      showToast(`Attached ${file.name} to driver ${vehicleForm.assignedDriver}!`);
+    } else {
+      setVehicleForm(prev => ({
+        ...prev,
+        rcDocumentName: file.name,
+        rcDocumentUrl: file.secure_url,
+      }));
+      showToast(`Attached ${file.name} to vehicle RC certificate!`);
+    }
+    setShowCloudinaryPicker(false);
   };
 
   // Fetch Vehicles
@@ -171,7 +279,8 @@ export const TripsPage: React.FC = () => {
       assignedDriver: defaultDriver,
       driverPhone: '+91 98401 00000',
       assignedRoute: 'Unassigned (Assigned at Dispatch)',
-      rcDocumentName: `RC_Verified_${nextCode}.pdf`
+      rcDocumentName: `RC_Verified_${nextCode}.pdf`,
+      rcDocumentUrl: ''
     });
     setIsOnboardModalOpen(true);
   };
@@ -192,7 +301,8 @@ export const TripsPage: React.FC = () => {
       assignedDriver: v.assignedDriver,
       driverPhone: v.driverPhone || '+91 98401 00000',
       assignedRoute: v.assignedRoute || 'Unassigned (Assigned at Dispatch)',
-      rcDocumentName: v.rcDocumentName || 'RC_Verified.pdf'
+      rcDocumentName: v.rcDocumentName || 'RC_Verified.pdf',
+      rcDocumentUrl: v.rcDocumentUrl || ''
     });
     setIsOnboardModalOpen(true);
   };
@@ -270,18 +380,8 @@ export const TripsPage: React.FC = () => {
 
   return (
     <div className="space-y-6 pt-1">
-      {/* Toast Notification */}
-      {toastMsg && (
-        <div className="p-4 bg-slate-900 text-emerald-400 border border-emerald-500/50 rounded-2xl text-xs font-extrabold flex items-center justify-between shadow-2xl shadow-emerald-950/40 animate-in fade-in slide-in-from-bottom-4 fixed bottom-6 right-6 z-[999999] max-w-md">
-          <div className="flex items-center gap-2.5">
-            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-            <span className="leading-snug">{toastMsg}</span>
-          </div>
-          <button onClick={() => setToastMsg(null)} className="text-slate-400 hover:text-white hover:opacity-75 cursor-pointer ml-3">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
+      {/* Toast Notification (Bottom Center) */}
+      <Toast message={toastMsg} onClose={() => setToastMsg(null)} />
 
       {/* Styled Header Container Card */}
       <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-[#F0F2F5] dark:border-slate-700 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -390,17 +490,19 @@ export const TripsPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2.5 w-full md:w-auto shrink-0 justify-between md:justify-end">
-          <Filter className="w-3.5 h-3.5 text-[#8C8C8C] dark:text-slate-400" />
-          <select 
-            value={statusFilter} 
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="bg-[#F7F9FB] dark:bg-slate-900 text-xs text-[#1C1C1C] dark:text-slate-200 font-semibold border border-[#E2E8F0] dark:border-slate-700 rounded-xl px-3 py-2 focus:outline-none shrink-0"
-          >
-            <option value="ALL">All Statuses ({vehicles.length})</option>
-            <option value="AVAILABLE">Available</option>
-            <option value="ACTIVE_DISPATCHED">Active Dispatched</option>
-            <option value="MAINTENANCE">Under Maintenance</option>
-          </select>
+          <div className="w-48 shrink-0">
+            <CustomSelect 
+              value={statusFilter} 
+              onChange={setStatusFilter}
+              options={[
+                { value: 'ALL', label: `All Statuses (${vehicles.length})` },
+                { value: 'AVAILABLE', label: 'Available', badge: 'READY' },
+                { value: 'ACTIVE_DISPATCHED', label: 'Active Dispatched', badge: 'EN-ROUTE' },
+                { value: 'MAINTENANCE', label: 'Under Maintenance', badge: 'GARAGE' },
+              ]}
+              placeholder="Status Filter"
+            />
+          </div>
 
           {/* View Switcher */}
           <div className="flex items-center bg-[#F7F9FB] dark:bg-slate-900 p-1 rounded-xl border border-[#E2E8F0] dark:border-slate-700 shrink-0">
@@ -748,16 +850,17 @@ export const TripsPage: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold mb-1">Vehicle Type *</label>
-                  <select
+                  <CustomSelect
                     value={vehicleForm.type}
-                    onChange={(e) => setVehicleForm(prev => ({ ...prev, type: e.target.value }))}
-                    className="w-full bg-[#F7F9FB] dark:bg-slate-800 text-xs font-semibold px-3 py-2 rounded-xl border border-[#E2E8F0] dark:border-slate-700 focus:outline-none"
-                  >
-                    <option value="Mini Truck">Mini Truck (1.5 Ton)</option>
-                    <option value="Large Delivery Van">Large Delivery Van (2.0 Ton)</option>
-                    <option value="Heavy Delivery Truck">Heavy Delivery Truck (2.5+ Ton)</option>
-                    <option value="Electric Cargo Van">Electric Cargo Van</option>
-                  </select>
+                    onChange={(val) => setVehicleForm(prev => ({ ...prev, type: val }))}
+                    options={[
+                      { value: 'Mini Truck', label: 'Mini Truck (1.5 Ton)', badge: '1.5T' },
+                      { value: 'Large Delivery Van', label: 'Large Delivery Van (2.0 Ton)', badge: '2.0T' },
+                      { value: 'Heavy Delivery Truck', label: 'Heavy Delivery Truck (2.5+ Ton)', badge: '2.5T' },
+                      { value: 'Electric Cargo Van', label: 'Electric Cargo Van', badge: 'EV' },
+                    ]}
+                    placeholder="Select Vehicle Type"
+                  />
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold mb-1">Payload Capacity (Kg) *</label>
@@ -775,54 +878,164 @@ export const TripsPage: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold mb-1">Assigned Primary Driver</label>
-                  <select
+                  <CustomSelect
                     value={vehicleForm.assignedDriver}
-                    onChange={(e) => setVehicleForm(prev => ({ ...prev, assignedDriver: e.target.value }))}
-                    className="w-full bg-[#F7F9FB] dark:bg-slate-800 text-xs font-semibold px-3 py-2 rounded-xl border border-[#E2E8F0] dark:border-slate-700 focus:outline-none"
-                  >
-                    {drivers.length === 0 ? (
-                      <option value="Rajesh Kumar">Rajesh Kumar</option>
-                    ) : (
-                      drivers.map((d: any) => (
-                        <option key={d.id} value={d.fullName || d.name}>{d.fullName || d.name}</option>
-                      ))
-                    )}
-                  </select>
+                    onChange={(val) => setVehicleForm(prev => ({ ...prev, assignedDriver: val }))}
+                    options={drivers.length === 0 ? ['Rajesh Kumar'] : drivers.map((d: any) => ({
+                      value: d.fullName || d.name,
+                      label: d.fullName || d.name,
+                      badge: 'DRIVER'
+                    }))}
+                    placeholder="Select Driver"
+                  />
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold mb-1">Operational Status</label>
-                  <select
+                  <CustomSelect
                     value={vehicleForm.status}
-                    onChange={(e) => setVehicleForm(prev => ({ ...prev, status: e.target.value as any }))}
-                    className="w-full bg-[#F7F9FB] dark:bg-slate-800 text-xs font-semibold px-3 py-2 rounded-xl border border-[#E2E8F0] dark:border-slate-700 focus:outline-none"
-                  >
-                    <option value="AVAILABLE">Available for Loading</option>
-                    <option value="ACTIVE_DISPATCHED">Active Dispatched</option>
-                    <option value="MAINTENANCE">Under Maintenance</option>
-                  </select>
+                    onChange={(val) => setVehicleForm(prev => ({ ...prev, status: val as any }))}
+                    options={[
+                      { value: 'AVAILABLE', label: 'Available for Loading', badge: 'READY' },
+                      { value: 'ACTIVE_DISPATCHED', label: 'Active Dispatched', badge: 'EN-ROUTE' },
+                      { value: 'MAINTENANCE', label: 'Under Maintenance', badge: 'GARAGE' },
+                    ]}
+                    placeholder="Select Status"
+                  />
                 </div>
               </div>
+
+              {/* ─── Assigned Driver DL Verification Section ──────────────── */}
+              {vehicleForm.assignedDriver && (
+                <div className="p-3.5 bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-2xl space-y-2.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-1.5 font-bold text-blue-900 dark:text-blue-200">
+                      <FileBadge className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                      <span>Driver DL Verification: {vehicleForm.assignedDriver}</span>
+                    </div>
+                    <span className="text-[10px] font-mono text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/60 px-2 py-0.5 rounded-full font-bold">
+                      DL: {selectedDriverObj?.dlNumber || 'Pending'}
+                    </span>
+                  </div>
+
+                  {selectedDriverObj?.dlDocumentUrl ? (
+                    <div className="flex items-center justify-between p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-blue-200 dark:border-blue-800 shadow-2xs">
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
+                          {selectedDriverObj.dlDocumentUrl.toLowerCase().includes('.pdf') ? (
+                            <FileText className="w-4 h-4 text-rose-500" />
+                          ) : (
+                            <img
+                              src={selectedDriverObj.dlDocumentUrl}
+                              alt="Driver DL"
+                              className="w-full h-full object-cover rounded-lg"
+                              onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                            />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                              DL_{selectedDriverObj.dlNumber || vehicleForm.assignedDriver}
+                            </span>
+                            <span className="text-[9px] font-bold uppercase px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                              Cloudinary Synced
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate font-mono">
+                            {selectedDriverObj.dlDocumentUrl}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0 ml-2">
+                        <button
+                          type="button"
+                          onClick={() => setPreviewModalUrl(selectedDriverObj.dlDocumentUrl)}
+                          className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-lg transition cursor-pointer"
+                          title="Preview DL"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <a
+                          href={selectedDriverObj.dlDocumentUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-white rounded-lg transition"
+                          title="Open in new tab"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <label className={`flex items-center justify-center gap-1.5 p-2.5 bg-white dark:bg-slate-900 hover:bg-blue-50/50 dark:hover:bg-slate-800/80 border border-dashed border-blue-300 dark:border-blue-700/80 rounded-xl cursor-pointer transition text-xs font-bold text-blue-600 dark:text-blue-400 ${isUploadingDoc ? 'opacity-50 pointer-events-none' : ''}`}>
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          className="hidden"
+                          onChange={handleUploadDriverDl}
+                          disabled={isUploadingDoc}
+                        />
+                        {isUploadingDoc ? (
+                          <div className="flex items-center gap-1.5">
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            <span>Uploading DL...</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            <Upload className="w-3.5 h-3.5" />
+                            <span>Upload Driver DL</span>
+                          </div>
+                        )}
+                      </label>
+
+                      <button
+                        type="button"
+                        onClick={() => handleOpenCloudinaryPicker('DRIVER_DL')}
+                        className="flex items-center justify-center gap-1.5 p-2.5 bg-white dark:bg-slate-900 hover:bg-purple-50/50 dark:hover:bg-slate-800/80 border border-purple-300 dark:border-purple-800/80 rounded-xl text-xs font-bold text-purple-600 dark:text-purple-400 cursor-pointer transition shadow-2xs"
+                      >
+                        <Folder className="w-3.5 h-3.5" />
+                        <span>Retrieve DL from Cloudinary</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold mb-1">Fitness Certificate Expiry Date *</label>
-                  <input
-                    type="date"
-                    required
+                  <CustomDatePicker
                     value={vehicleForm.fitnessExpiry}
-                    onChange={(e) => setVehicleForm(prev => ({ ...prev, fitnessExpiry: e.target.value }))}
-                    className="w-full bg-[#F7F9FB] dark:bg-slate-800 text-xs font-semibold px-3 py-2 rounded-xl border border-[#E2E8F0] dark:border-slate-700 focus:outline-none"
+                    onChange={(val) => setVehicleForm(prev => ({ ...prev, fitnessExpiry: val }))}
+                    placeholder="Select Expiry Date"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold mb-1">RC Certificate Document Name</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. RC_TN01EA4521.pdf"
-                    value={vehicleForm.rcDocumentName}
-                    onChange={(e) => setVehicleForm(prev => ({ ...prev, rcDocumentName: e.target.value }))}
-                    className="w-full bg-[#F7F9FB] dark:bg-slate-800 text-xs font-mono px-3 py-2 rounded-xl border border-[#E2E8F0] dark:border-slate-700 focus:outline-none"
-                  />
+                  <label className="block text-[11px] font-bold mb-1">RC Certificate Document (Cloudinary)</label>
+                  <div className="flex items-center gap-1.5">
+                    <label className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-[#F7F9FB] dark:bg-slate-800 hover:bg-blue-50/50 border border-[#E2E8F0] dark:border-slate-700 rounded-xl cursor-pointer text-xs font-semibold text-slate-700 dark:text-slate-200 transition truncate ${isUploadingDoc ? 'opacity-50 pointer-events-none' : ''}`}>
+                      <input
+                        type="file"
+                        accept="image/*,application/pdf"
+                        className="hidden"
+                        onChange={handleUploadRcDoc}
+                        disabled={isUploadingDoc}
+                      />
+                      <Upload className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                      <span className="truncate">{vehicleForm.rcDocumentName || 'Upload RC Document'}</span>
+                    </label>
+
+                    <button
+                      type="button"
+                      onClick={() => handleOpenCloudinaryPicker('VEHICLE_RC')}
+                      className="p-2 bg-[#F7F9FB] dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 hover:bg-purple-50 text-purple-600 rounded-xl transition cursor-pointer shrink-0"
+                      title="Retrieve from Cloudinary"
+                    >
+                      <Folder className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -840,12 +1053,10 @@ export const TripsPage: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold mb-1">Insurance Expiry Date *</label>
-                  <input
-                    type="date"
-                    required
+                  <CustomDatePicker
                     value={vehicleForm.insuranceExpiry}
-                    onChange={(e) => setVehicleForm(prev => ({ ...prev, insuranceExpiry: e.target.value }))}
-                    className="w-full bg-[#F7F9FB] dark:bg-slate-800 text-xs font-semibold px-3 py-2 rounded-xl border border-[#E2E8F0] dark:border-slate-700 focus:outline-none"
+                    onChange={(val) => setVehicleForm(prev => ({ ...prev, insuranceExpiry: val }))}
+                    placeholder="Select Expiry Date"
                   />
                 </div>
               </div>
@@ -864,12 +1075,10 @@ export const TripsPage: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold mb-1">PUC Expiry Date *</label>
-                  <input
-                    type="date"
-                    required
+                  <CustomDatePicker
                     value={vehicleForm.pucExpiry}
-                    onChange={(e) => setVehicleForm(prev => ({ ...prev, pucExpiry: e.target.value }))}
-                    className="w-full bg-[#F7F9FB] dark:bg-slate-800 text-xs font-semibold px-3 py-2 rounded-xl border border-[#E2E8F0] dark:border-slate-700 focus:outline-none"
+                    onChange={(val) => setVehicleForm(prev => ({ ...prev, pucExpiry: val }))}
+                    placeholder="Select Expiry Date"
                   />
                 </div>
               </div>
@@ -898,6 +1107,193 @@ export const TripsPage: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════════════════ */}
+      {/* CLOUDINARY REPOSITORY / RETRIEVAL BROWSER MODAL                         */}
+      {/* ═══════════════════════════════════════════════════════════════════════ */}
+      {showCloudinaryPicker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-blue-900 to-indigo-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center">
+                  <Folder className="w-4 h-4 text-blue-200" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm">Cloudinary Document Repository</h3>
+                  <p className="text-[11px] text-blue-200 font-mono">
+                    Target: {cloudinaryTarget === 'DRIVER_DL' ? 'bread_erp/drivers/dl' : 'bread_erp/fleet/rc'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowCloudinaryPicker(false)}
+                className="p-1 text-white/80 hover:text-white rounded-lg transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Search & Actions Bar */}
+            <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex items-center justify-between gap-3">
+              <div className="relative flex-1">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search files by name..."
+                  value={cloudinarySearch}
+                  onChange={e => setCloudinarySearch(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <button
+                onClick={() => handleOpenCloudinaryPicker(cloudinaryTarget)}
+                disabled={isLoadingCloudinary}
+                className="px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-2xs transition"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isLoadingCloudinary ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+            </div>
+
+            {/* Files Grid */}
+            <div className="p-5 overflow-y-auto flex-1 space-y-3">
+              {isLoadingCloudinary ? (
+                <div className="py-16 text-center space-y-3">
+                  <RefreshCw className="w-8 h-8 text-blue-600 animate-spin mx-auto" />
+                  <p className="text-xs text-slate-500 font-medium">Retrieving documents from Cloudinary...</p>
+                </div>
+              ) : cloudinaryFiles.length === 0 ? (
+                <div className="py-16 text-center space-y-3 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
+                  <Folder className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto" />
+                  <div>
+                    <p className="text-xs font-bold text-slate-700 dark:text-slate-300">No documents found in folder</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">Upload a new document to populate this folder</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {cloudinaryFiles
+                    .filter(f => !cloudinarySearch || f.name.toLowerCase().includes(cloudinarySearch.toLowerCase()))
+                    .map((file, idx) => (
+                      <div
+                        key={idx}
+                        className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700/80 hover:border-blue-500 dark:hover:border-blue-500 transition space-y-2 flex flex-col justify-between group shadow-2xs"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 overflow-hidden flex items-center justify-center shrink-0">
+                            {file.format === 'pdf' ? (
+                              <FileText className="w-6 h-6 text-rose-500" />
+                            ) : (
+                              <img
+                                src={file.secure_url}
+                                alt={file.name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                              />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-extrabold text-slate-900 dark:text-white truncate">
+                              {file.name}
+                            </p>
+                            <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                              {file.format ? file.format.toUpperCase() : 'DOC'} • {Math.round(file.bytes / 1024)} KB
+                            </p>
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                              {file.created_at ? new Date(file.created_at).toLocaleDateString() : 'Cloudinary Stored'}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setPreviewModalUrl(file.secure_url)}
+                            className="text-[11px] font-bold text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 flex items-center gap-1 cursor-pointer"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            Preview
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleSelectCloudinaryDoc(file)}
+                            className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-xs"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            Select & Attach
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 flex items-center justify-between text-xs text-slate-500">
+              <span>{cloudinaryFiles.length} documents in Cloudinary folder</span>
+              <button
+                type="button"
+                onClick={() => setShowCloudinaryPicker(false)}
+                className="px-4 py-1.5 bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl font-bold hover:bg-slate-300 transition cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════════════════ */}
+      {/* DOCUMENT FULLSCREEN PREVIEW MODAL                                      */}
+      {/* ═══════════════════════════════════════════════════════════════════════ */}
+      {previewModalUrl && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-3xl rounded-3xl shadow-2xl border border-slate-700 overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="px-6 py-3.5 bg-slate-950 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileBadge className="w-4 h-4 text-blue-400" />
+                <span className="font-bold text-xs">Cloudinary Document Preview</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={previewModalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  download
+                  className="px-3 py-1 bg-white/15 hover:bg-white/25 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Download
+                </a>
+                <button
+                  onClick={() => setPreviewModalUrl(null)}
+                  className="p-1 text-white/80 hover:text-white rounded-lg transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 overflow-y-auto flex-1 flex items-center justify-center bg-slate-100 dark:bg-slate-950 min-h-[400px]">
+              {previewModalUrl.toLowerCase().includes('.pdf') ? (
+                <iframe
+                  src={previewModalUrl}
+                  title="Document PDF"
+                  className="w-full h-[550px] rounded-xl border border-slate-300 dark:border-slate-800"
+                />
+              ) : (
+                <img
+                  src={previewModalUrl}
+                  alt="Document Preview"
+                  className="max-h-[550px] max-w-full rounded-2xl shadow-xl object-contain border border-slate-200 dark:border-slate-800"
+                />
+              )}
+            </div>
           </div>
         </div>
       )}

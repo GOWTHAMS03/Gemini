@@ -1,12 +1,18 @@
 package com.breadfactory.erp.enums;
 
 public enum ProductionStage {
-    STAGE_DISPENSING,      // Raw material staging & precision weighing
-    STAGE_MIXING,          // Spiral mixing & kneading
-    STAGE_DIVIDING,        // Dividing, rounding & resting
-    STAGE_PROOFING,        // Temperature/humidity proofing chamber
-    STAGE_BAKING,          // Oven baking & crust coloration
-    STAGE_COOLING_PACKING, // Cooling conveyor, slicing & polybag flow-wrap
-    STAGE_QC_RELEASE,      // Final QC inspection & release
-    STAGE_COMPLETED        // Finished goods deposited into warehouse
+    // 3 Standard Stages
+    STAGE_1_PREP_BAKE_COOL,   // Mixing -> Cup Divide -> Oven Baking -> Cooling & Dry
+    STAGE_2_SLICE_PACK_STACK,  // Slicing & Primary Bag Packing -> Stacker (Horizontal to Plate / Plate to Horizontal)
+    STAGE_3_ROLL_PACKAGING,    // Roll Packing & Bulk Packaging Module (Boxes & Bundles)
+    STAGE_COMPLETED,           // Handover to Finished Goods Warehouse & Dispatch
+
+    // Legacy Aliases (Preserved for backward database compatibility)
+    STAGE_DISPENSING,
+    STAGE_MIXING,
+    STAGE_DIVIDING,
+    STAGE_PROOFING,
+    STAGE_BAKING,
+    STAGE_COOLING_PACKING,
+    STAGE_QC_RELEASE
 }

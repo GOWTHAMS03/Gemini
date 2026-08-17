@@ -11,6 +11,7 @@ import { RefreshCw, FileText,
   Receipt
 } from 'lucide-react';
 import { financeReportsApi, ApiProfitAndLoss, ApiBalanceSheet } from '../services/apiService';
+import { CustomDatePicker } from '../components/common';
 
 export const FinancialReportsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'PNL' | 'BALANCE_SHEET' | 'CASH_FLOW'>('PNL');
@@ -186,20 +187,21 @@ export const FinancialReportsPage: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-[#8C8C8C]" />
-            <input
-              type="date"
-              value={startDate}
-              onChange={e => setStartDate(e.target.value)}
-              className="bg-[#F7F9FB] dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-700 rounded-xl px-2.5 py-1 text-xs font-semibold"
-            />
-            <span className="text-xs text-[#8C8C8C]">to</span>
-            <input
-              type="date"
-              value={endDate}
-              onChange={e => setEndDate(e.target.value)}
-              className="bg-[#F7F9FB] dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-700 rounded-xl px-2.5 py-1 text-xs font-semibold"
-            />
+            <div className="w-40">
+              <CustomDatePicker
+                value={startDate}
+                onChange={setStartDate}
+                placeholder="Start Date"
+              />
+            </div>
+            <span className="text-xs font-bold text-[#8C8C8C]">to</span>
+            <div className="w-40">
+              <CustomDatePicker
+                value={endDate}
+                onChange={setEndDate}
+                placeholder="End Date"
+              />
+            </div>
           </div>
         </div>
 

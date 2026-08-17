@@ -63,6 +63,31 @@ public class ProductionRunDTO {
     private BigDecimal totalProductionCost;
     private String notes;
     
+    // 3-Stage Start & Stop Timestamps
+    private ZonedDateTime stage1StartTime;
+    private ZonedDateTime stage1EndTime;
+    private Boolean stage1Completed;
+
+    private ZonedDateTime stage2StartTime;
+    private ZonedDateTime stage2EndTime;
+    private Boolean stage2Completed;
+
+    private ZonedDateTime stage3StartTime;
+    private ZonedDateTime stage3EndTime;
+    private Boolean stage3Completed;
+
+    // Stage 3 Packaging Module details
+    private Integer boxCount;
+    private Integer unitsPerBox;
+    private Integer bundleCount;
+    private Integer unitsPerBundle;
+    private Integer coverCount;
+    private Integer unitsPerCover;
+    private Integer tinCount;
+    private Integer looseUnits;
+    private String packagingType;
+    private String packagingNotes;
+    
     // Timestamps
     private ZonedDateTime startTime;
     private ZonedDateTime endTime;

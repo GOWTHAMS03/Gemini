@@ -21,6 +21,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { categoryApi } from '../services/apiService';
+import { CustomSelect } from '../components/common';
 
 export interface CategoryModel {
   id: number;
@@ -583,18 +584,18 @@ export const CategoriesPage: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-[11px] font-bold mb-1">Badge Color Theme</label>
-                    <select
-                      name="color"
+                    <CustomSelect
                       value={formData.color}
-                      onChange={handleInputChange}
-                      className="w-full bg-[#F7F9FB] dark:bg-slate-800 text-xs font-semibold px-3 py-2 rounded-xl border border-[#E2E8F0] dark:border-slate-700 focus:outline-none"
-                    >
-                      <option value="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20">Blue</option>
-                      <option value="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">Emerald Green</option>
-                      <option value="bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20">Purple Violet</option>
-                      <option value="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20">Amber Gold</option>
-                      <option value="bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20">Rose Red</option>
-                    </select>
+                      onChange={val => setFormData(prev => ({ ...prev, color: val }))}
+                      options={[
+                        { value: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20', label: 'Blue', badge: 'BLUE' },
+                        { value: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20', label: 'Emerald Green', badge: 'GREEN' },
+                        { value: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20', label: 'Purple Violet', badge: 'PURPLE' },
+                        { value: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20', label: 'Amber Gold', badge: 'AMBER' },
+                        { value: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20', label: 'Rose Red', badge: 'ROSE' },
+                      ]}
+                      placeholder="Select Theme"
+                    />
                   </div>
                 </div>
 
@@ -611,17 +612,17 @@ export const CategoriesPage: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-[11px] font-bold mb-1">GST Rate *</label>
-                    <select
-                      name="gstRate"
+                    <CustomSelect
                       value={formData.gstRate}
-                      onChange={handleInputChange}
-                      className="w-full bg-[#F7F9FB] dark:bg-slate-800 text-xs font-semibold px-3 py-2 rounded-xl border border-[#E2E8F0] dark:border-slate-700 focus:outline-none"
-                    >
-                      <option value="5%">5% (Bread & Bakery)</option>
-                      <option value="12%">12% (Confectionery)</option>
-                      <option value="18%">18% (Standard)</option>
-                      <option value="0%">0% (Exempt)</option>
-                    </select>
+                      onChange={val => setFormData(prev => ({ ...prev, gstRate: val }))}
+                      options={[
+                        { value: '5%', label: '5% (Bread & Bakery)', badge: '5%' },
+                        { value: '12%', label: '12% (Confectionery)', badge: '12%' },
+                        { value: '18%', label: '18% (Standard)', badge: '18%' },
+                        { value: '0%', label: '0% (Exempt)', badge: '0%' },
+                      ]}
+                      placeholder="Select GST Rate"
+                    />
                   </div>
                 </div>
 

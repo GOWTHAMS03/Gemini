@@ -8,10 +8,11 @@ spring:
     name: bread-factory-erp
   
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://127.0.0.1:5433/bread_erp_db}
-    username: ${SPRING_DATASOURCE_USERNAME:erp_admin}
-    password: ${SPRING_DATASOURCE_PASSWORD:erp_secret_password}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://127.0.0.1:${POSTGRES_PORT:5433}/${POSTGRES_DB:bread_erp_db}}
+    username: ${SPRING_DATASOURCE_USERNAME:${POSTGRES_USER:erp_admin}}
+    password: ${SPRING_DATASOURCE_PASSWORD:${POSTGRES_PASSWORD:erp_secret_password}}
     driver-class-name: org.postgresql.Driver
+
 
   jpa:
     hibernate:
@@ -25,8 +26,8 @@ spring:
 
   data:
     redis:
-      host: ${SPRING_REDIS_HOST:127.0.0.1}
-      port: ${SPRING_REDIS_PORT:6379}
+      host: ${SPRING_REDIS_HOST:${REDIS_HOST:127.0.0.1}}
+      port: ${SPRING_REDIS_PORT:${REDIS_PORT:6379}}
       password: ${SPRING_REDIS_PASSWORD:}
       ssl:
         enabled: ${SPRING_REDIS_SSL_ENABLED:false}

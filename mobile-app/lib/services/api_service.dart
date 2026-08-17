@@ -14,9 +14,7 @@ class ApiException implements Exception {
 
 class ApiService {
   // Production AWS EC2 Server IP
-  static const String _PROD_IP = '3.107.97.45';
-  static const String _WIFI_IP = '192.168.0.109'; 
-  static const String _LOCAL_IP = '10.0.2.2'; // Standard Android emulator loopback
+  static const String _PROD_IP = '32.236.155.239';
   static const String _API_VERSION = 'v1';
 
   static late String _baseUrl;
@@ -43,37 +41,15 @@ class ApiService {
   static Future<void> initialize(SharedPreferences prefs) async {
     _prefs = prefs;
     
-    // 1. Check if user set custom IP or previously confirmed working IP
-    final savedIp = _prefs?.getString('custom_server_ip') ?? _prefs?.getString('last_working_ip');
+    // Check if custom IP was explicitly configured
+    final savedIp = _prefs?.getString('custom_server_ip');
     if (savedIp != null && savedIp.isNotEmpty) {
       _baseUrl = _formatUrl(savedIp);
       return;
     }
 
-    // 2. Default immediately to AWS EC2 Production Server
+    // Default immediately to AWS EC2 Production Server
     _baseUrl = _formatUrl(_PROD_IP);
-
-    // 3. Candidate check in background
-    final candidateIps = [_PROD_IP, _WIFI_IP, _LOCAL_IP];
-    try {
-      await Future.any(candidateIps.map((ip) async {
-        try {
-          final targetUrl = _formatUrl(ip);
-          final res = await http.get(
-            Uri.parse('$targetUrl/products'),
-          ).timeout(const Duration(milliseconds: 1000));
-
-          if (res.statusCode >= 200 && res.statusCode < 500) {
-            _baseUrl = targetUrl;
-            _prefs?.setString('last_working_ip', ip);
-            return ip;
-          }
-        } catch (_) {}
-        throw Exception('Failed on $ip');
-      }));
-    } catch (_) {
-      // Keep default
-    }
   }
 
   static void setServerIp(String ip) {

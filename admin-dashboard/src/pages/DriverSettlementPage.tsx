@@ -23,6 +23,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { collectionApi } from '../services/apiService';
+import { CustomSelect } from '../components/common';
 
 export interface SettlementItem {
   id: number;
@@ -288,16 +289,18 @@ export const DriverSettlementPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2.5 w-full md:w-auto shrink-0 justify-between md:justify-end">
-          <Filter className="w-3.5 h-3.5 text-[#8C8C8C] dark:text-slate-400" />
-          <select 
-            value={statusFilter} 
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="bg-[#F7F9FB] dark:bg-slate-900 text-xs text-[#1C1C1C] dark:text-slate-200 font-semibold border border-[#E2E8F0] dark:border-slate-700 rounded-xl px-3 py-2 focus:outline-none shrink-0"
-          >
-            <option value="ALL">All Audit Statuses</option>
-            <option value="SETTLED">Settled (Matched)</option>
-            <option value="DISCREPANCY">Discrepancy (Shortage)</option>
-          </select>
+          <div className="w-52 shrink-0">
+            <CustomSelect 
+              value={statusFilter} 
+              onChange={setStatusFilter}
+              options={[
+                { value: 'ALL', label: 'All Audit Statuses' },
+                { value: 'SETTLED', label: 'Settled (Matched)', badge: 'MATCH' },
+                { value: 'DISCREPANCY', label: 'Discrepancy (Shortage)', badge: 'WARN' },
+              ]}
+              placeholder="Audit Status"
+            />
+          </div>
         </div>
       </div>
 
@@ -516,17 +519,17 @@ export const DriverSettlementPage: React.FC = () => {
               <div className="space-y-3">
                 <div>
                   <label className="block text-[11px] font-bold mb-1">Select Driver *</label>
-                  <select
-                    name="driver"
+                  <CustomSelect
                     value={formData.driver}
-                    onChange={handleInputChange}
-                    className="w-full bg-[#F7F9FB] dark:bg-slate-800 text-xs font-semibold px-3 py-2 rounded-xl border border-[#E2E8F0] dark:border-slate-700 focus:outline-none"
-                  >
-                    <option value="Rajesh Sharma">Rajesh Sharma (TRIP-1722770000)</option>
-                    <option value="Mahesh Selvam">Mahesh Selvam (TRIP-1722771200)</option>
-                    <option value="Sunil Verma">Sunil Verma (TRIP-1722773400)</option>
-                    <option value="Karthik Sundaram">Karthik Sundaram (TRIP-1722774900)</option>
-                  </select>
+                    onChange={val => setFormData(prev => ({ ...prev, driver: val }))}
+                    options={[
+                      { value: 'Rajesh Sharma', label: 'Rajesh Sharma (TRIP-1722770000)', badge: 'TRIP-770' },
+                      { value: 'Mahesh Selvam', label: 'Mahesh Selvam (TRIP-1722771200)', badge: 'TRIP-771' },
+                      { value: 'Sunil Verma', label: 'Sunil Verma (TRIP-1722773400)', badge: 'TRIP-773' },
+                      { value: 'Karthik Sundaram', label: 'Karthik Sundaram (TRIP-1722774900)', badge: 'TRIP-774' },
+                    ]}
+                    placeholder="Select Driver"
+                  />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">

@@ -52,6 +52,7 @@ public class EmployeeController {
         private String primaryRoute;
         private String dlNumber;
         private String dlExpiryDate;
+        private String dlDocumentUrl;
         private String govtIdType;
         private String govtIdNumber;
         private String policeVerificationStatus;
@@ -81,6 +82,7 @@ public class EmployeeController {
         private String primaryRoute;
         private String dlNumber;
         private String dlExpiryDate;
+        private String dlDocumentUrl;
         private String govtIdType;
         private String govtIdNumber;
         private String policeVerificationStatus;
@@ -111,6 +113,7 @@ public class EmployeeController {
                 .primaryRoute(user.getPrimaryRoute())
                 .dlNumber(user.getDlNumber())
                 .dlExpiryDate(user.getDlExpiryDate() != null ? user.getDlExpiryDate().toString() : null)
+                .dlDocumentUrl(user.getDlDocumentUrl())
                 .govtIdType(user.getGovtIdType())
                 .govtIdNumber(user.getGovtIdNumber())
                 .policeVerificationStatus(user.getPoliceVerificationStatus())
@@ -221,6 +224,7 @@ public class EmployeeController {
                 .primaryRoute(request.getPrimaryRoute())
                 .dlNumber(request.getDlNumber())
                 .dlExpiryDate(dlExpiryDate)
+                .dlDocumentUrl(request.getDlDocumentUrl())
                 .govtIdType(request.getGovtIdType())
                 .govtIdNumber(request.getGovtIdNumber())
                 .policeVerificationStatus(request.getPoliceVerificationStatus() != null ? request.getPoliceVerificationStatus() : "PENDING")
@@ -255,6 +259,7 @@ public class EmployeeController {
                     if (request.getDlExpiryDate() != null && !request.getDlExpiryDate().isBlank()) {
                         try { user.setDlExpiryDate(LocalDate.parse(request.getDlExpiryDate())); } catch (Exception ignored) {}
                     }
+                    if (request.getDlDocumentUrl() != null) user.setDlDocumentUrl(request.getDlDocumentUrl());
                     if (request.getGovtIdType() != null) user.setGovtIdType(request.getGovtIdType());
                     if (request.getGovtIdNumber() != null) user.setGovtIdNumber(request.getGovtIdNumber());
                     if (request.getPoliceVerificationStatus() != null) user.setPoliceVerificationStatus(request.getPoliceVerificationStatus());

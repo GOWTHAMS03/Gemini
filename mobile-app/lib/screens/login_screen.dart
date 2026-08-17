@@ -4,7 +4,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/theme.dart';
 import '../../widgets/app_svg_icons.dart';
 import '../providers/delivery_provider.dart';
-import '../services/api_service.dart';
 import 'driver_dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -15,8 +14,15 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _usernameController = TextEditingController(text: 'gowtham1');
-  final _passwordController = TextEditingController(text: 'Gowtham@123');
+  final _usernameController = TextEditingController();
+  final _passwordController = TextEditingController();
+
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -94,88 +100,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _showServerConfigDialog() {
-    final currentUrl = ApiService.baseUrl;
-    String currentHost = '10.0.2.2';
-    try {
-      final uri = Uri.parse(currentUrl);
-      currentHost = uri.host;
-    } catch (_) {}
-
-    final ipController = TextEditingController(text: currentHost);
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.settings_ethernet, color: Colors.blue),
-            SizedBox(width: 8),
-            Text('Server Connection IP', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Select or enter host machine IP address:',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: ipController,
-              decoration: const InputDecoration(
-                labelText: 'Host IP / Hostname',
-                hintText: 'e.g. 10.0.2.2 or 192.168.0.109',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 6,
-              children: [
-                ActionChip(
-                  label: const Text('10.0.2.2 (Emulator)'),
-                  onPressed: () => ipController.text = '10.0.2.2',
-                ),
-                ActionChip(
-                  label: const Text('192.168.0.109 (Wi-Fi)'),
-                  onPressed: () => ipController.text = '192.168.0.109',
-                ),
-                ActionChip(
-                  label: const Text('localhost'),
-                  onPressed: () => ipController.text = 'localhost',
-                ),
-              ],
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              ApiService.setServerIp(ipController.text.trim());
-              Navigator.pop(ctx);
-              setState(() {});
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Server URL set to: ${ApiService.baseUrl}'),
-                  backgroundColor: AppTheme.emeraldGreen,
-                ),
-              );
-            },
-            child: const Text('Save & Apply'),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<DeliveryProvider>(context);
@@ -249,6 +173,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   style: TextStyle(color: textColor),
                   decoration: InputDecoration(
                     labelText: 'Username or Executive Code',
+                    hintText: 'Enter username or executive code',
                     prefixIcon: Padding(
                       padding: const EdgeInsets.all(12.0),
                       child: AppSvgIcon(svgString: AppSvgIcons.driverPerson, size: 20, color: primaryColor),
@@ -262,53 +187,14 @@ class _LoginScreenState extends State<LoginScreen> {
                   style: TextStyle(color: textColor),
                   decoration: InputDecoration(
                     labelText: 'Password',
+                    hintText: 'Enter password',
                     prefixIcon: Padding(
                       padding: const EdgeInsets.all(12.0),
                       child: AppSvgIcon(svgString: AppSvgIcons.lockActual, size: 20, color: primaryColor),
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
-
-                // Server state badge & Config button
-                InkWell(
-                  onTap: _showServerConfigDialog,
-                  borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 8.0),
-                    child: Column(
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              provider.isOnline ? Icons.cloud_done : Icons.dns,
-                              size: 14,
-                              color: provider.isOnline ? AppTheme.emeraldGreen : AppTheme.amberAccent,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              provider.isOnline ? 'Online Integration Ready' : 'Backend Server Connected',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: provider.isOnline ? AppTheme.emeraldGreen : AppTheme.amberAccent,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            const Icon(Icons.edit, size: 12, color: Colors.grey),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          ApiService.baseUrl,
-                          style: const TextStyle(fontSize: 10, fontFamily: 'monospace', color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
 
                 ElevatedButton(
                   onPressed: provider.isLoading ? null : _handleLogin,

@@ -10,6 +10,7 @@ import api, {
   ApiWeeklyPlan, ApiDailyTrip, ApiDailyShop,
   ApiDeliveryRoute, ApiWeeklyPlanCreate
 } from '../services/apiService';
+import { CustomSelect, CustomWeekPicker, Toast } from '../components/common';
 
 // ─── Interfaces & Helpers ───────────────────────────────────────────────────────
 
@@ -398,18 +399,8 @@ export const WeeklyTripPlanningPage: React.FC = () => {
 
   return (
     <div className="space-y-6 pt-1">
-      {/* Toast Notification */}
-      {toastMessage && (
-        <div className="p-4 bg-slate-900 text-emerald-400 border border-emerald-500/50 rounded-2xl text-xs font-extrabold flex items-center justify-between shadow-2xl shadow-emerald-950/40 animate-in fade-in slide-in-from-bottom-4 fixed bottom-6 right-6 z-[999999] max-w-md">
-          <div className="flex items-center gap-2.5">
-            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-            <span className="leading-snug">{toastMessage}</span>
-          </div>
-          <button onClick={() => setToastMessage(null)} className="text-slate-400 hover:text-white hover:opacity-75 cursor-pointer ml-3">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
+      {/* Toast Notification (Bottom Center) */}
+      <Toast message={toastMessage} onClose={() => setToastMessage(null)} />
 
       {/* Styled Header Card */}
       <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-[#F0F2F5] dark:border-slate-700 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -1022,18 +1013,19 @@ export const WeeklyTripPlanningPage: React.FC = () => {
                     <label className="block text-xs font-bold text-[#1C1C1C] dark:text-slate-300 uppercase mb-1.5">
                       Select Dispatch Group *
                     </label>
-                    <select
+                    <CustomSelect
                       value={createForm.dispatchGroupId}
-                      onChange={e => setCreateForm(f => ({ ...f, dispatchGroupId: Number(e.target.value) }))}
-                      className="w-full px-3.5 py-2.5 bg-[#F8F9FA] dark:bg-slate-900 border border-[#E9ECEF] dark:border-slate-700 rounded-xl text-xs font-semibold text-[#1C1C1C] dark:text-white"
-                    >
-                      <option value={0}>-- Select Group --</option>
-                      {dispatchGroups.map(g => (
-                        <option key={g.id} value={g.id}>
-                          {g.groupName} {g.driverName ? `(Driver: ${g.driverName})` : ''}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={val => setCreateForm(f => ({ ...f, dispatchGroupId: Number(val) }))}
+                      options={[
+                        { value: 0, label: '-- Select Group --' },
+                        ...dispatchGroups.map(g => ({
+                          value: g.id,
+                          label: `${g.groupName} ${g.driverName ? `(Driver: ${g.driverName})` : ''}`,
+                          badge: g.driverName ? 'READY' : undefined
+                        }))
+                      ]}
+                      placeholder="-- Select Group --"
+                    />
                   </div>
 
                   {selectedFormGroup && (
@@ -1048,11 +1040,10 @@ export const WeeklyTripPlanningPage: React.FC = () => {
                     <label className="block text-xs font-bold text-[#1C1C1C] dark:text-slate-300 uppercase mb-1.5">
                       Select Calendar Week (Mon - Sat) *
                     </label>
-                    <input
-                      type="week"
+                    <CustomWeekPicker
                       value={selectedWeekVal}
-                      onChange={e => handleWeekChange(e.target.value)}
-                      className="w-full px-3.5 py-2.5 bg-[#F8F9FA] dark:bg-slate-900 border border-[#E9ECEF] dark:border-slate-700 rounded-xl text-xs font-semibold text-[#1C1C1C] dark:text-white"
+                      onChange={handleWeekChange}
+                      placeholder="Select calendar week (Mon - Sat)"
                     />
                     {createForm.weekStartDate && (
                       <p className="text-xs text-purple-600 dark:text-purple-400 font-bold mt-1">
@@ -1084,18 +1075,21 @@ export const WeeklyTripPlanningPage: React.FC = () => {
                   {DAY_ORDER.map(day => (
                     <div key={day} className="flex items-center justify-between p-3 bg-[#F8F9FA] dark:bg-slate-900 rounded-xl border border-[#E9ECEF] dark:border-slate-700 gap-3">
                       <span className="text-xs font-bold text-[#1C1C1C] dark:text-white w-24">{day}</span>
-                      <select
-                        value={formDayRoutes[day] || 0}
-                        onChange={e => setFormDayRoutes(prev => ({ ...prev, [day]: Number(e.target.value) }))}
-                        className="flex-1 px-3 py-2 bg-white dark:bg-slate-800 border border-[#E9ECEF] dark:border-slate-700 rounded-xl text-xs text-[#1C1C1C] dark:text-white"
-                      >
-                        <option value={0}>-- No Route Assigned --</option>
-                        {routes.map(r => (
-                          <option key={r.id} value={r.id}>
-                            {r.routeName} ({r.totalShops || 0} shops • {r.totalDistanceKm?.toFixed(1) || 0} KM)
-                          </option>
-                        ))}
-                      </select>
+                      <div className="flex-1">
+                        <CustomSelect
+                          value={formDayRoutes[day] || 0}
+                          onChange={val => setFormDayRoutes(prev => ({ ...prev, [day]: Number(val) }))}
+                          options={[
+                            { value: 0, label: '-- No Route Assigned --' },
+                            ...routes.map(r => ({
+                              value: r.id,
+                              label: `${r.routeName} (${r.totalShops || 0} shops • ${r.totalDistanceKm?.toFixed(1) || 0} KM)`,
+                              badge: `${r.totalShops || 0} SHOPS`
+                            }))
+                          ]}
+                          placeholder="-- Select Route --"
+                        />
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1353,11 +1347,10 @@ export const WeeklyTripPlanningPage: React.FC = () => {
                 <label className="block text-xs font-bold text-[#1C1C1C] dark:text-slate-300 uppercase mb-1.5">
                   Select Target Week (Optional - Defaults to Next Week)
                 </label>
-                <input
-                  type="week"
+                <CustomWeekPicker
                   value={targetDuplicateWeek}
-                  onChange={e => setTargetDuplicateWeek(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-[#F8F9FA] dark:bg-slate-900 border border-[#E9ECEF] dark:border-slate-700 rounded-xl text-xs font-semibold text-[#1C1C1C] dark:text-white"
+                  onChange={setTargetDuplicateWeek}
+                  placeholder="Select target calendar week"
                 />
                 <p className="text-[11px] text-[#8C8C8C] mt-1">
                   This will duplicate all daily route assignments and shop visit sequences to the target week as a new Draft plan.

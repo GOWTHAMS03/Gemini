@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { productApi, categoryApi, mediaApi } from '../services/apiService';
+import { CustomSelect, Toast } from '../components/common';
 import { 
   Package, 
   Plus, 
@@ -380,18 +381,8 @@ export const ProductsPage: React.FC = () => {
 
   return (
     <div className="space-y-6 pt-1">
-      {/* Toast Notification */}
-      {successToast && (
-        <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 rounded-xl text-xs font-bold flex items-center justify-between shadow-lg animate-in fade-in">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-            <span>{successToast}</span>
-          </div>
-          <button onClick={() => setSuccessToast('')} className="text-emerald-700 dark:text-emerald-300 hover:opacity-75">
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
+      {/* Toast Notification (Bottom Center) */}
+      <Toast message={successToast} onClose={() => setSuccessToast('')} />
 
       {/* Styled Header Container Card */}
       <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-[#F0F2F5] dark:border-slate-700 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -529,17 +520,17 @@ export const ProductsPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2.5 w-full md:w-auto shrink-0 justify-between md:justify-end">
-          <Filter className="w-3.5 h-3.5 text-[#8C8C8C] dark:text-slate-400" />
-          <select 
-            value={selectedCategory} 
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="bg-[#F7F9FB] dark:bg-slate-900 text-xs text-[#1C1C1C] dark:text-slate-200 font-semibold border border-[#E2E8F0] dark:border-slate-700 rounded-xl px-3 py-2 focus:outline-none shrink-0"
-          >
-            <option value="All">All Categories ({products.length})</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.name}>{c.name}</option>
-            ))}
-          </select>
+          <div className="w-48 shrink-0">
+            <CustomSelect 
+              value={selectedCategory} 
+              onChange={setSelectedCategory}
+              options={[
+                { value: 'All', label: `All Categories (${products.length})` },
+                ...categories.map(c => ({ value: c.name, label: c.name }))
+              ]}
+              placeholder="Filter Category"
+            />
+          </div>
 
           {/* View Mode Switcher */}
           <div className="flex items-center bg-[#F7F9FB] dark:bg-slate-900 p-1 rounded-xl border border-[#E2E8F0] dark:border-slate-700 shrink-0">
@@ -1101,20 +1092,12 @@ export const ProductsPage: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold mb-1">Product Category *</label>
-                  <select
-                    name="category"
+                  <CustomSelect
                     value={productFormData.category}
-                    onChange={handleProductInputChange}
-                    className="w-full bg-[#F7F9FB] dark:bg-slate-800 text-xs font-semibold px-3 py-2 rounded-xl border border-[#E2E8F0] dark:border-slate-700 focus:outline-none"
-                  >
-                    {categories.length === 0 ? (
-                      <option value="Bread">Bread</option>
-                    ) : (
-                      categories.map((c) => (
-                        <option key={c.id} value={c.name}>{c.name}</option>
-                      ))
-                    )}
-                  </select>
+                    onChange={val => setProductFormData(prev => ({ ...prev, category: val }))}
+                    options={categories.length === 0 ? ['Bread'] : categories.map(c => ({ value: c.name, label: c.name }))}
+                    placeholder="Select Category"
+                  />
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold mb-1">Pack Weight (Grams) *</label>

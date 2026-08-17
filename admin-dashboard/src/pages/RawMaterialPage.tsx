@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { rawMaterialApi } from '../services/apiService';
+import { CustomSelect, Toast } from '../components/common';
 import { 
   Boxes, 
   Plus, 
@@ -17,7 +18,8 @@ import {
   ShoppingCart,
   ShieldCheck,
   PackageCheck,
-  Trash2
+  Trash2,
+  Edit3
 } from 'lucide-react';
 
 export interface MaterialItem {
@@ -75,6 +77,7 @@ export const RawMaterialPage: React.FC = () => {
 
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingMaterial, setEditingMaterial] = useState<MaterialItem | null>(null);
   const [selectedRestockMaterial, setSelectedRestockMaterial] = useState<MaterialItem | null>(null);
   const [restockQty, setRestockQty] = useState('500');
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -93,7 +96,6 @@ export const RawMaterialPage: React.FC = () => {
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
-    setTimeout(() => setToastMsg(null), 3500);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -101,37 +103,67 @@ export const RawMaterialPage: React.FC = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleAddMaterial = async (e: React.FormEvent) => {
+  const handleOpenAdd = () => {
+    setEditingMaterial(null);
+    setFormData({
+      name: '',
+      code: `RM-00${materials.length + 1}`,
+      category: 'Flour',
+      stock: '500',
+      minStock: '200',
+      unit: 'KG',
+      cost: '40',
+      supplier: 'Shree Krishna Flour Mills',
+      location: 'Rack A-01'
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEdit = (material: MaterialItem) => {
+    setEditingMaterial(material);
+    setFormData({
+      name: material.name,
+      code: material.code,
+      category: material.category,
+      stock: String(material.stock),
+      minStock: String(material.minStock),
+      unit: material.unit,
+      cost: String(material.cost),
+      supplier: material.supplier,
+      location: material.location
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleSaveMaterial = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim()) return;
 
+    const payload = {
+      materialCode: formData.code || `RM-00${materials.length + 1}`,
+      name: formData.name,
+      category: formData.category,
+      currentStock: parseFloat(formData.stock) || 0,
+      minStockAlert: parseFloat(formData.minStock) || 0,
+      unit: formData.unit,
+      unitCost: parseFloat(formData.cost) || 0,
+      supplierName: formData.supplier,
+      warehouseLocation: formData.location
+    };
+
     try {
-      await rawMaterialApi.create({
-        materialCode: formData.code || `RM-00${materials.length + 1}`,
-        name: formData.name,
-        category: formData.category,
-        currentStock: parseFloat(formData.stock) || 0,
-        minStockAlert: parseFloat(formData.minStock) || 0,
-        unit: formData.unit,
-        unitCost: parseFloat(formData.cost) || 0,
-        supplierName: formData.supplier
-      });
+      if (editingMaterial) {
+        await rawMaterialApi.update(editingMaterial.id, payload);
+        showToast(`✓ Updated raw ingredient "${formData.name}" & unit price (₹${formData.cost}/${formData.unit})`);
+      } else {
+        await rawMaterialApi.create(payload);
+        showToast(`✓ Added raw ingredient "${formData.name}" to inventory`);
+      }
       fetchMaterials();
       setIsModalOpen(false);
-      showToast(`Added raw ingredient "${formData.name}" to inventory`);
-      setFormData({
-        name: '',
-        code: `RM-00${materials.length + 2}`,
-        category: 'Flour',
-        stock: '500',
-        minStock: '200',
-        unit: 'KG',
-        cost: '40',
-        supplier: 'Shree Krishna Flour Mills',
-        location: 'Rack A-01'
-      });
+      setEditingMaterial(null);
     } catch (err: any) {
-      showToast(`Error adding raw material: ${err.message || 'Failed'}`);
+      showToast(`Error saving raw material: ${err.message || 'Failed'}`);
     }
   };
 
@@ -142,7 +174,7 @@ export const RawMaterialPage: React.FC = () => {
 
     try {
       await rawMaterialApi.restock(selectedRestockMaterial.id, addVal);
-      showToast(`Restocked ${addVal} ${selectedRestockMaterial.unit} for ${selectedRestockMaterial.name}`);
+      showToast(`⚡ Restocked ${addVal} ${selectedRestockMaterial.unit} for ${selectedRestockMaterial.name}`);
       fetchMaterials();
       setSelectedRestockMaterial(null);
     } catch (err: any) {
@@ -187,18 +219,8 @@ export const RawMaterialPage: React.FC = () => {
 
   return (
     <div className="space-y-6 pt-1">
-      {/* Toast Notification */}
-      {toastMsg && (
-        <div className="p-4 bg-slate-900 text-emerald-400 border border-emerald-500/50 rounded-2xl text-xs font-extrabold flex items-center justify-between shadow-2xl shadow-emerald-950/40 animate-in fade-in slide-in-from-bottom-4 fixed bottom-6 right-6 z-[999999] max-w-md">
-          <div className="flex items-center gap-2.5">
-            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-            <span className="leading-snug">{toastMsg}</span>
-          </div>
-          <button onClick={() => setToastMsg(null)} className="text-slate-400 hover:text-white hover:opacity-75 cursor-pointer ml-3">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
+      {/* Toast Notification (Bottom Center) */}
+      <Toast message={toastMsg} onClose={() => setToastMsg(null)} />
 
       {/* Styled Header Container Card */}
       <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-[#F0F2F5] dark:border-slate-700 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -207,9 +229,6 @@ export const RawMaterialPage: React.FC = () => {
             <h1 className="text-base sm:text-lg font-extrabold text-[#1C1C1C] dark:text-white tracking-tight">
               Raw Material Inventory & Warehouse Bin Stock
             </h1>
-            <span className="text-[10px] font-extrabold bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-md border border-amber-500/20">
-              BETA
-            </span>
             <span className="text-[10px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2.5 py-0.5 rounded-full border border-blue-500/20 flex items-center gap-1">
               <Boxes className="w-3 h-3 text-blue-500" />
               {totalItemsCount} Ingredients Tracked
@@ -229,7 +248,7 @@ export const RawMaterialPage: React.FC = () => {
             <RefreshCw className="w-4 h-4" />
           </button>
           <button 
-            onClick={() => setIsModalOpen(true)}
+            onClick={handleOpenAdd}
             className="px-4 py-2 bg-[#1C1C1C] dark:bg-blue-600 hover:bg-black dark:hover:bg-blue-500 text-white font-bold rounded-xl text-xs transition flex items-center gap-2 shadow-xs cursor-pointer active:scale-95"
           >
             <Plus className="w-4 h-4" /> Add Raw Material
@@ -309,30 +328,36 @@ export const RawMaterialPage: React.FC = () => {
           />
         </div>
 
-        <div className="flex items-center gap-2.5 w-full md:w-auto shrink-0 justify-between md:justify-end">
-          <select 
-            value={categoryFilter} 
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            className="bg-[#F7F9FB] dark:bg-slate-900 text-xs text-[#1C1C1C] dark:text-slate-200 font-semibold border border-[#E2E8F0] dark:border-slate-700 rounded-xl px-3 py-2 focus:outline-none shrink-0"
-          >
-            <option value="ALL">All Categories</option>
-            <option value="Flour">Flour & Grain</option>
-            <option value="Sugar">Sugar & Sweeteners</option>
-            <option value="Yeast">Yeast & Cultures</option>
-            <option value="Oil & Fat">Oil & Fats</option>
-            <option value="Packaging">Packaging Film</option>
-            <option value="Additive">Preservatives & Additives</option>
-          </select>
+        <div className="flex items-center gap-2.5 w-full md:w-auto shrink-0 justify-between md:justify-end flex-wrap">
+          <div className="w-48 shrink-0">
+            <CustomSelect 
+              value={categoryFilter} 
+              onChange={setCategoryFilter}
+              options={[
+                { value: 'ALL', label: 'All Categories' },
+                { value: 'Flour', label: 'Flour & Grain', badge: 'FLOUR' },
+                { value: 'Sugar', label: 'Sugar & Sweeteners', badge: 'SUGAR' },
+                { value: 'Yeast', label: 'Yeast & Cultures', badge: 'YEAST' },
+                { value: 'Oil & Fat', label: 'Oil & Fats', badge: 'FAT' },
+                { value: 'Packaging', label: 'Packaging Film', badge: 'PACK' },
+                { value: 'Additive', label: 'Preservatives & Additives', badge: 'ADD' },
+              ]}
+              placeholder="Category Filter"
+            />
+          </div>
 
-          <select 
-            value={stockStatusFilter} 
-            onChange={(e) => setStockStatusFilter(e.target.value)}
-            className="bg-[#F7F9FB] dark:bg-slate-900 text-xs text-[#1C1C1C] dark:text-slate-200 font-semibold border border-[#E2E8F0] dark:border-slate-700 rounded-xl px-3 py-2 focus:outline-none shrink-0"
-          >
-            <option value="ALL">All Stock Levels</option>
-            <option value="LOW_STOCK">Low Stock (Reorder Warning)</option>
-            <option value="ADEQUATE">Adequate Safety Stock</option>
-          </select>
+          <div className="w-52 shrink-0">
+            <CustomSelect 
+              value={stockStatusFilter} 
+              onChange={setStockStatusFilter}
+              options={[
+                { value: 'ALL', label: 'All Stock Levels' },
+                { value: 'LOW_STOCK', label: 'Low Stock (Warning)', badge: 'REORDER' },
+                { value: 'ADEQUATE', label: 'Adequate Safety Stock', badge: 'SAFE' },
+              ]}
+              placeholder="Stock Level"
+            />
+          </div>
         </div>
       </div>
 
@@ -350,7 +375,7 @@ export const RawMaterialPage: React.FC = () => {
                 <th className="py-3.5 px-4 font-bold min-w-[180px]">B2B Supplier</th>
                 <th className="py-3.5 px-4 font-bold min-w-[120px]">Bin Location</th>
                 <th className="py-3.5 px-4 font-bold min-w-[120px]">Stock Status</th>
-                <th className="py-3.5 px-4 font-bold min-w-[120px] text-right">Quick Restock</th>
+                <th className="py-3.5 px-4 font-bold min-w-[170px] text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F0F2F5] dark:divide-slate-700/60">
@@ -435,21 +460,32 @@ export const RawMaterialPage: React.FC = () => {
                       )}
                     </td>
 
-                    {/* Actions */}
-                    <td className="py-3.5 px-4 text-right space-x-1">
-                      <button
-                        onClick={() => setSelectedRestockMaterial(material)}
-                        className="px-3 py-1.5 bg-[#F7F9FB] dark:bg-slate-700 hover:bg-[#E2E8F0] dark:hover:bg-slate-600 text-[#1C1C1C] dark:text-white font-bold rounded-lg text-xs transition inline-flex items-center gap-1 border border-[#E2E8F0] dark:border-slate-600 cursor-pointer"
-                      >
-                        <RefreshCw className="w-3.5 h-3.5 text-blue-500" /> Restock PO
-                      </button>
-                      <button
-                        onClick={() => handleDeleteMaterial(material.id, material.name)}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-lg transition cursor-pointer"
-                        title="Delete Material"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                    {/* Actions Column */}
+                    <td className="py-3.5 px-4 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => setSelectedRestockMaterial(material)}
+                          className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs active:scale-95"
+                          title="Restock Purchase Order"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                          <span>Restock PO</span>
+                        </button>
+                        <button
+                          onClick={() => handleOpenEdit(material)}
+                          className="p-1.5 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 rounded-xl text-xs font-bold transition cursor-pointer shadow-2xs active:scale-95"
+                          title="Edit Material & Unit Price"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteMaterial(material.id, material.name)}
+                          className="p-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800 rounded-xl text-xs font-bold transition cursor-pointer shadow-2xs active:scale-95"
+                          title="Delete Material"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -523,26 +559,32 @@ export const RawMaterialPage: React.FC = () => {
         </div>
       )}
 
-      {/* ADD RAW MATERIAL MODAL */}
+      {/* ADD / EDIT RAW MATERIAL & PRICING MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-[#F0F2F5] dark:border-slate-800 shadow-2xl w-full max-w-lg overflow-hidden space-y-4 text-[#1C1C1C] dark:text-slate-100">
             <div className="px-6 py-4 border-b border-[#F0F2F5] dark:border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="p-2.5 bg-[#1C1C1C] dark:bg-blue-600 text-white rounded-xl">
-                  <Boxes className="w-5 h-5" />
+                  {editingMaterial ? <Edit3 className="w-5 h-5" /> : <Boxes className="w-5 h-5" />}
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold">Add Raw Ingredient</h3>
-                  <p className="text-[11px] text-[#8C8C8C] dark:text-slate-400">Enter ingredient specifications and reorder levels</p>
+                  <h3 className="text-sm font-bold">
+                    {editingMaterial ? 'Edit Raw Ingredient & Pricing' : 'Add Raw Ingredient'}
+                  </h3>
+                  <p className="text-[11px] text-[#8C8C8C] dark:text-slate-400">
+                    {editingMaterial 
+                      ? 'Update unit purchase cost, supplier, stock thresholds, and bin location' 
+                      : 'Enter ingredient specifications and reorder levels'}
+                  </p>
                 </div>
               </div>
-              <button onClick={() => setIsModalOpen(false)} className="p-1.5 text-slate-400 hover:text-slate-200 rounded-lg">
+              <button onClick={() => { setIsModalOpen(false); setEditingMaterial(null); }} className="p-1.5 text-slate-400 hover:text-slate-200 rounded-lg">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleAddMaterial} className="px-6 pb-6 space-y-4 text-xs">
+            <form onSubmit={handleSaveMaterial} className="px-6 pb-6 space-y-4 text-xs">
               <div className="space-y-3">
                 <div>
                   <label className="block text-[11px] font-bold mb-1">Ingredient Name *</label>
@@ -570,25 +612,37 @@ export const RawMaterialPage: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-[11px] font-bold mb-1">Category *</label>
-                    <select
-                      name="category"
+                    <CustomSelect
                       value={formData.category}
-                      onChange={handleInputChange}
-                      className="w-full bg-[#F7F9FB] dark:bg-slate-800 text-xs font-semibold px-3 py-2 rounded-xl border border-[#E2E8F0] dark:border-slate-700 focus:outline-none"
-                    >
-                      <option value="Flour">Flour & Grain</option>
-                      <option value="Sugar">Sugar & Sweeteners</option>
-                      <option value="Yeast">Yeast & Cultures</option>
-                      <option value="Oil & Fat">Oil & Fats</option>
-                      <option value="Packaging">Packaging Film</option>
-                      <option value="Additive">Preservatives & Additives</option>
-                    </select>
+                      onChange={val => setFormData(prev => ({ ...prev, category: val }))}
+                      options={[
+                        { value: 'Flour', label: 'Flour & Grain', badge: 'FLOUR' },
+                        { value: 'Sugar', label: 'Sugar & Sweeteners', badge: 'SUGAR' },
+                        { value: 'Yeast', label: 'Yeast & Cultures', badge: 'YEAST' },
+                        { value: 'Oil & Fat', label: 'Oil & Fats', badge: 'FAT' },
+                        { value: 'Packaging', label: 'Packaging Film', badge: 'PACK' },
+                        { value: 'Additive', label: 'Preservatives & Additives', badge: 'ADD' },
+                      ]}
+                      placeholder="Select Category"
+                    />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-[11px] font-bold mb-1">Initial Stock Quantity *</label>
+                    <label className="block text-[11px] font-bold mb-1">Unit of Measure *</label>
+                    <input
+                      type="text"
+                      name="unit"
+                      required
+                      value={formData.unit}
+                      onChange={handleInputChange}
+                      placeholder="KG, L, Packs"
+                      className="w-full bg-[#F7F9FB] dark:bg-slate-800 text-xs font-bold px-3 py-2 rounded-xl border border-[#E2E8F0] dark:border-slate-700 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold mb-1">Stock Quantity *</label>
                     <input
                       type="number"
                       name="stock"
@@ -598,7 +652,7 @@ export const RawMaterialPage: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-bold mb-1">Min Safety Threshold *</label>
+                    <label className="block text-[11px] font-bold mb-1">Min Threshold *</label>
                     <input
                       type="number"
                       name="minStock"
@@ -611,13 +665,16 @@ export const RawMaterialPage: React.FC = () => {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[11px] font-bold mb-1">Unit Cost (₹) *</label>
+                    <label className="block text-[11px] font-bold mb-1 text-emerald-600 dark:text-emerald-400">
+                      Unit Purchase Cost (₹ / Unit) *
+                    </label>
                     <input
                       type="number"
                       name="cost"
+                      required
                       value={formData.cost}
                       onChange={handleInputChange}
-                      className="w-full bg-[#F7F9FB] dark:bg-slate-800 text-xs font-bold text-emerald-600 dark:text-emerald-400 px-3 py-2 rounded-xl border border-[#E2E8F0] dark:border-slate-700 focus:outline-none"
+                      className="w-full bg-[#F7F9FB] dark:bg-slate-800 text-xs font-black text-emerald-600 dark:text-emerald-400 px-3 py-2 rounded-xl border border-emerald-300 dark:border-emerald-700 focus:outline-none ring-2 ring-emerald-500/10"
                     />
                   </div>
                   <div>
@@ -632,21 +689,34 @@ export const RawMaterialPage: React.FC = () => {
                     />
                   </div>
                 </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold mb-1">Primary B2B Supplier *</label>
+                  <input
+                    type="text"
+                    name="supplier"
+                    required
+                    value={formData.supplier}
+                    onChange={handleInputChange}
+                    placeholder="e.g. Shree Krishna Flour Mills"
+                    className="w-full bg-[#F7F9FB] dark:bg-slate-800 text-xs px-3 py-2 rounded-xl border border-[#E2E8F0] dark:border-slate-700 focus:outline-none font-semibold"
+                  />
+                </div>
               </div>
 
               <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-[#F0F2F5] dark:border-slate-800">
                 <button
                   type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 bg-[#F7F9FB] dark:bg-slate-800 text-xs font-semibold rounded-xl border border-[#E2E8F0] dark:border-slate-700"
+                  onClick={() => { setIsModalOpen(false); setEditingMaterial(null); }}
+                  className="px-4 py-2 bg-[#F7F9FB] dark:bg-slate-800 text-xs font-semibold rounded-xl border border-[#E2E8F0] dark:border-slate-700 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-[#1C1C1C] dark:bg-blue-600 hover:bg-black text-white text-xs font-bold rounded-xl shadow-sm cursor-pointer"
+                  className="px-5 py-2 bg-[#1C1C1C] dark:bg-blue-600 hover:bg-black dark:hover:bg-blue-500 text-white text-xs font-bold rounded-xl shadow-sm cursor-pointer active:scale-95"
                 >
-                  Save Ingredient
+                  {editingMaterial ? 'Update Ingredient & Pricing' : 'Save Ingredient'}
                 </button>
               </div>
             </form>

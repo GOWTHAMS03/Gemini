@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { recipeApi } from '../services/apiService';
+import { recipeApi, productApi, rawMaterialApi, categoryApi, ApiProduct, ApiRawMaterial } from '../services/apiService';
+import { CustomSelect, Toast } from '../components/common';
 import { 
   ChefHat, 
   Plus, 
@@ -27,15 +28,19 @@ import {
 } from 'lucide-react';
 
 export interface RecipeIngredient {
+  rawMaterialId: number;
   material: string;
   qty: string;
   unit: string;
+  unitCost: number;
   cost: number;
 }
 
 export interface RecipeModel {
   id: number;
+  productId?: number;
   productName: string;
+  productCode?: string;
   category: string;
   batchOutput: number;
   unit: string;
@@ -46,59 +51,81 @@ export interface RecipeModel {
   lastUpdated: string;
 }
 
-const rawMaterialOptions = [
-  { name: 'Refined Wheat Flour (Maida)', unit: 'KG', unitCost: 35.00 },
-  { name: 'Whole Wheat Flour (Atta)', unit: 'KG', unitCost: 38.00 },
-  { name: 'Granulated White Sugar', unit: 'KG', unitCost: 45.00 },
-  { name: 'Active Dry Baker Yeast', unit: 'KG', unitCost: 300.00 },
-  { name: 'Refined Sunflower Oil', unit: 'LTR', unitCost: 130.00 },
-  { name: 'Unsalted Dairy Butter', unit: 'KG', unitCost: 180.00 },
-  { name: 'Bread Packaging Film', unit: 'Pcs', unitCost: 0.90 },
-  { name: 'Tutti Frutti / Dried Fruit Bits', unit: 'KG', unitCost: 80.00 },
-  { name: 'Calcium Propionate Preservative', unit: 'KG', unitCost: 210.00 }
-];
-
-
 export const RecipePage: React.FC = () => {
   const [recipes, setRecipes] = useState<RecipeModel[]>([]);
+  const [products, setProducts] = useState<ApiProduct[]>([]);
+  const [rawMaterials, setRawMaterials] = useState<ApiRawMaterial[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch live recipes from backend API
-  const fetchRecipes = () => {
+  // Fetch live master data (recipes, products, raw materials, categories) from backend APIs
+  const fetchMasterData = async () => {
     setIsLoading(true);
-    recipeApi.getAll()
-      .then((res) => {
-        if (res.data) {
-          const mapped = res.data.map((r: any) => ({
+    try {
+      const [recRes, prodRes, rmRes, catRes] = await Promise.allSettled([
+        recipeApi.getAll(),
+        productApi.getAll(),
+        rawMaterialApi.getAll(),
+        categoryApi.getAll()
+      ]);
+
+      const liveProducts = prodRes.status === 'fulfilled' && prodRes.value.data ? prodRes.value.data : [];
+      const liveRawMaterials = rmRes.status === 'fulfilled' && rmRes.value.data ? rmRes.value.data : [];
+      const liveCategories = catRes.status === 'fulfilled' && catRes.value.data ? catRes.value.data : [];
+
+      setProducts(liveProducts);
+      setRawMaterials(liveRawMaterials);
+      setCategories(liveCategories);
+
+      if (recRes.status === 'fulfilled' && recRes.value.data) {
+        const mapped = recRes.value.data.map((r: any) => {
+          const prod = liveProducts.find(p => p.id === (r.product?.id || r.productId)) || r.product;
+          const items = (r.items || []).map((it: any) => {
+            const rm = liveRawMaterials.find(m => m.id === (it.rawMaterial?.id || it.rawMaterialId)) || it.rawMaterial;
+            const unitCost = rm?.unitCost || 0;
+            const qty = parseFloat(it.requiredQuantity || it.quantityRequired || 1);
+            return {
+              rawMaterialId: rm?.id || it.rawMaterial?.id || 0,
+              material: rm?.name || it.rawMaterial?.name || 'Raw Material',
+              qty: String(qty),
+              unit: it.unit || rm?.unit || 'KG',
+              unitCost: unitCost,
+              cost: Math.round(qty * unitCost)
+            };
+          });
+
+          const totalCost = items.reduce((sum: number, it: any) => sum + it.cost, 0);
+          const batchOutput = r.batchOutputQuantity || 100;
+          const calculatedCost = batchOutput > 0 ? parseFloat((totalCost / batchOutput).toFixed(2)) : 0;
+
+          return {
             id: r.id,
-            productName: r.recipeName || r.product?.name || 'Custom Product Recipe',
-            category: 'Bread',
-            batchOutput: r.batchOutputQuantity || 100,
+            productId: prod?.id,
+            productName: r.recipeName || prod?.name || 'Product Recipe',
+            productCode: prod?.productCode || `SKU-${r.id}`,
+            category: typeof prod?.category === 'string' ? prod.category : (prod?.category?.name || r.category || 'General'),
+            batchOutput: batchOutput,
             unit: 'Packets',
-            mrp: 40,
-            dealerPrice: 30,
-            unitCost: 10,
-            lastUpdated: r.createdAt ? r.createdAt.substring(0, 10) : '2026-08-06',
-            items: r.items?.map((it: any) => ({
-              material: it.rawMaterial?.name || 'Raw Material',
-              qty: it.quantityRequired?.toString() || '1',
-              unit: it.unit || 'KG',
-              cost: (it.quantityRequired || 1) * 35,
-            })) || [],
-          }));
-          setRecipes(mapped);
-        }
-      })
-      .catch((err) => {
-        console.error('Failed to load recipes from API:', err);
-      })
-      .finally(() => setIsLoading(false));
+            mrp: prod?.mrp || 0,
+            dealerPrice: prod?.dealerPrice || 0,
+            unitCost: calculatedCost,
+            lastUpdated: r.updatedAt ? r.updatedAt.substring(0, 10) : (r.createdAt ? r.createdAt.substring(0, 10) : '2026-08-16'),
+            items: items
+          };
+        });
+        setRecipes(mapped);
+      }
+    } catch (err) {
+      console.error('Failed to load recipe master data:', err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
-    fetchRecipes();
+    fetchMasterData();
   }, []);
   
   // UI states
@@ -111,41 +138,52 @@ export const RecipePage: React.FC = () => {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   // Modal formulation form state
+  const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
   const [productName, setProductName] = useState('');
-  const [category, setCategory] = useState('Bread');
+  const [category, setCategory] = useState('General');
   const [batchOutput, setBatchOutput] = useState('100');
-  const [mrp, setMrp] = useState('');
-  const [dealerPrice, setDealerPrice] = useState('');
+  const [mrp, setMrp] = useState('0');
+  const [dealerPrice, setDealerPrice] = useState('0');
   const [ingredients, setIngredients] = useState<RecipeIngredient[]>([]);
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
-    setTimeout(() => setToastMsg(null), 3500);
   };
 
   const toggleExpand = (id: number) => {
     setExpandedRecipeIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
   };
 
+  const handleProductChange = (prodIdStr: string) => {
+    const prodId = parseInt(prodIdStr);
+    setSelectedProductId(prodId);
+    const prod = products.find(p => p.id === prodId);
+    if (prod) {
+      setProductName(prod.name);
+      setCategory(typeof prod.category === 'string' ? prod.category : ((prod.category as any)?.name || 'General'));
+      setMrp(String(prod.mrp || 0));
+      setDealerPrice(String(prod.dealerPrice || 0));
+    }
+  };
+
   const handleIngredientChange = (index: number, field: keyof RecipeIngredient, value: string | number) => {
     const updated = [...ingredients];
-    if (field === 'material') {
-      const selectedMatName = value as string;
-      const matOpt = rawMaterialOptions.find(m => m.name === selectedMatName);
-      updated[index].material = selectedMatName;
-      if (matOpt) {
-        updated[index].unit = matOpt.unit;
-        const qtyNum = parseFloat(updated[index].qty) || 1;
-        updated[index].cost = Math.round(qtyNum * matOpt.unitCost);
+    if (field === 'rawMaterialId') {
+      const rmId = parseInt(value as string);
+      const rm = rawMaterials.find(m => m.id === rmId);
+      if (rm) {
+        updated[index].rawMaterialId = rm.id;
+        updated[index].material = rm.name;
+        updated[index].unit = rm.unit || 'KG';
+        updated[index].unitCost = rm.unitCost || 0;
+        const qtyNum = parseFloat(updated[index].qty) || 0;
+        updated[index].cost = parseFloat((qtyNum * (rm.unitCost || 0)).toFixed(2));
       }
     } else if (field === 'qty') {
       const qtyStr = value as string;
       updated[index].qty = qtyStr;
-      const matOpt = rawMaterialOptions.find(m => m.name === updated[index].material);
-      if (matOpt) {
-        const qtyNum = parseFloat(qtyStr) || 0;
-        updated[index].cost = Math.round(qtyNum * matOpt.unitCost);
-      }
+      const qtyNum = parseFloat(qtyStr) || 0;
+      updated[index].cost = parseFloat((qtyNum * (updated[index].unitCost || 0)).toFixed(2));
     } else if (field === 'cost') {
       updated[index].cost = parseFloat(value as string) || 0;
     } else if (field === 'unit') {
@@ -155,10 +193,32 @@ export const RecipePage: React.FC = () => {
   };
 
   const addIngredientRow = () => {
-    setIngredients([
-      ...ingredients,
-      { material: 'Granulated White Sugar', qty: '1.00', unit: 'KG', cost: 45 }
-    ]);
+    const firstRM = rawMaterials.length > 0 ? rawMaterials[0] : null;
+    if (firstRM) {
+      setIngredients(prev => [
+        ...prev,
+        {
+          rawMaterialId: firstRM.id,
+          material: firstRM.name,
+          qty: '1.00',
+          unit: firstRM.unit || 'KG',
+          unitCost: firstRM.unitCost || 0,
+          cost: firstRM.unitCost || 0
+        }
+      ]);
+    } else {
+      setIngredients(prev => [
+        ...prev,
+        {
+          rawMaterialId: 0,
+          material: '',
+          qty: '1.00',
+          unit: 'KG',
+          unitCost: 0,
+          cost: 0
+        }
+      ]);
+    }
   };
 
   const removeIngredientRow = (index: number) => {
@@ -167,23 +227,35 @@ export const RecipePage: React.FC = () => {
 
   const openCreateModal = () => {
     setEditingRecipe(null);
-    setProductName('Standard White Bread (400g)');
-    setCategory('Bread');
+    const firstProd = products.length > 0 ? products[0] : null;
+    setSelectedProductId(firstProd ? firstProd.id : null);
+    setProductName(firstProd ? firstProd.name : '');
+    setCategory(firstProd ? (typeof firstProd.category === 'string' ? firstProd.category : ((firstProd.category as any)?.name || 'General')) : 'General');
     setBatchOutput('100');
-    setMrp('40');
-    setDealerPrice('28');
-    setIngredients([
-      { material: 'Refined Wheat Flour (Maida)', qty: '10.00', unit: 'KG', cost: 350 },
-      { material: 'Granulated White Sugar', qty: '1.20', unit: 'KG', cost: 54 },
-      { material: 'Active Dry Baker Yeast', qty: '0.40', unit: 'KG', cost: 120 },
-      { material: 'Refined Sunflower Oil', qty: '0.80', unit: 'LTR', cost: 104 },
-      { material: 'Bread Packaging Film', qty: '100.00', unit: 'Pcs', cost: 90 }
-    ]);
+    setMrp(firstProd ? String(firstProd.mrp || 0) : '0');
+    setDealerPrice(firstProd ? String(firstProd.dealerPrice || 0) : '0');
+
+    if (rawMaterials.length > 0) {
+      const firstRM = rawMaterials[0];
+      setIngredients([
+        {
+          rawMaterialId: firstRM.id,
+          material: firstRM.name,
+          qty: '1.00',
+          unit: firstRM.unit || 'KG',
+          unitCost: firstRM.unitCost || 0,
+          cost: firstRM.unitCost || 0
+        }
+      ]);
+    } else {
+      setIngredients([]);
+    }
     setIsModalOpen(true);
   };
 
   const openEditModal = (recipe: RecipeModel) => {
     setEditingRecipe(recipe);
+    setSelectedProductId(recipe.productId || null);
     setProductName(recipe.productName);
     setCategory(recipe.category);
     setBatchOutput(recipe.batchOutput.toString());
@@ -193,35 +265,47 @@ export const RecipePage: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const totalBatchCost = ingredients.reduce((sum, item) => sum + item.cost, 0);
+  const totalBatchCost = ingredients.reduce((sum, item) => sum + (item.cost || 0), 0);
   const calculatedUnitCost = parseFloat(batchOutput) > 0 ? (totalBatchCost / parseFloat(batchOutput)).toFixed(2) : '0.00';
 
   const handleSaveRecipe = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!productName.trim() || ingredients.length === 0) return;
+    if (!productName.trim()) {
+      showToast('Please select a target finished product SKU');
+      return;
+    }
+    if (ingredients.length === 0) {
+      showToast('Please add at least one BOM raw material ingredient');
+      return;
+    }
 
-    const payload = {
+    const payload: any = {
       recipeName: productName,
-      batchOutputQuantity: parseInt(batchOutput) || 100,
+      batchOutputQuantity: parseFloat(batchOutput) || 100,
       isActive: true,
       items: ingredients.map(ing => ({
-        unit: ing.unit,
-        quantityRequired: parseFloat(ing.qty) || 1
+        rawMaterial: ing.rawMaterialId ? { id: ing.rawMaterialId } : undefined,
+        requiredQuantity: parseFloat(ing.qty) || 0,
+        unit: ing.unit
       }))
     };
+
+    if (selectedProductId) {
+      payload.product = { id: selectedProductId };
+    }
 
     try {
       if (editingRecipe) {
         await recipeApi.update(editingRecipe.id, payload);
-        showToast(`Updated formulation for ${productName}`);
+        showToast(`✓ Updated formulation for "${productName}" successfully!`);
       } else {
         await recipeApi.create(payload);
-        showToast(`Formulated new recipe for ${productName}`);
+        showToast(`✓ Created new BOM recipe for "${productName}" successfully!`);
       }
-      fetchRecipes();
+      fetchMasterData();
       setIsModalOpen(false);
     } catch (err: any) {
-      showToast(`Error saving recipe: ${err.message || 'Failed'}`);
+      showToast(`Error saving recipe: ${err.response?.data?.message || err.message || 'Failed'}`);
     }
   };
 
@@ -229,10 +313,10 @@ export const RecipePage: React.FC = () => {
     if (!window.confirm(`Are you sure you want to delete recipe "${name}"?`)) return;
     try {
       await recipeApi.delete(id);
-      showToast(`Deleted recipe formulation for "${name}"`);
-      fetchRecipes();
+      showToast(`✓ Deleted recipe formulation for "${name}"`);
+      fetchMasterData();
     } catch (err: any) {
-      showToast(`Failed to delete recipe: ${err.message || 'Failed'}`);
+      showToast(`Failed to delete recipe: ${err.response?.data?.message || err.message || 'Failed'}`);
     }
   };
 
@@ -245,18 +329,8 @@ export const RecipePage: React.FC = () => {
 
   return (
     <div className="space-y-6 pt-1">
-      {/* Toast Notification */}
-      {toastMsg && (
-        <div className="p-4 bg-slate-900 text-emerald-400 border border-emerald-500/50 rounded-2xl text-xs font-extrabold flex items-center justify-between shadow-2xl shadow-emerald-950/40 animate-in fade-in slide-in-from-bottom-4 fixed bottom-6 right-6 z-[999999] max-w-md">
-          <div className="flex items-center gap-2.5">
-            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-            <span className="leading-snug">{toastMsg}</span>
-          </div>
-          <button onClick={() => setToastMsg(null)} className="text-slate-400 hover:text-white hover:opacity-75 cursor-pointer ml-3">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
+      {/* Toast Notification (Bottom Center) */}
+      <Toast message={toastMsg} onClose={() => setToastMsg(null)} />
 
       {/* Styled Header Container Card */}
       <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-[#F0F2F5] dark:border-slate-700 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -265,9 +339,6 @@ export const RecipePage: React.FC = () => {
             <h1 className="text-base sm:text-lg font-extrabold text-[#1C1C1C] dark:text-white tracking-tight">
               Recipe Formulations & Bill of Materials (BOM)
             </h1>
-            <span className="text-[10px] font-extrabold bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-md border border-amber-500/20">
-              BETA
-            </span>
             <span className="text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2.5 py-0.5 rounded-full border border-emerald-500/20 flex items-center gap-1">
               <ShieldCheck className="w-3 h-3 text-emerald-500" /> MES Auto Stock Deduction
             </span>
@@ -279,7 +350,7 @@ export const RecipePage: React.FC = () => {
 
         <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
           <button
-            onClick={fetchRecipes}
+            onClick={fetchMasterData}
             className="p-2.5 bg-[#F8F9FA] dark:bg-slate-700 hover:bg-[#F0F2F5] dark:hover:bg-slate-600 text-[#1C1C1C] dark:text-slate-200 rounded-xl transition cursor-pointer border border-[#E9ECEF] dark:border-slate-600"
             title="Refresh Recipe Data"
           >
@@ -320,7 +391,7 @@ export const RecipePage: React.FC = () => {
           </div>
           <div className="space-y-1">
             <div className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 leading-none">
-              ₹{(recipes.reduce((acc, r) => acc + r.unitCost, 0) / recipes.length || 0).toFixed(2)} / Pkt
+              ₹{(recipes.reduce((acc, r) => acc + r.unitCost, 0) / (recipes.length || 1)).toFixed(2)} / Pkt
             </div>
             <div className="text-[11px] text-emerald-600 font-semibold pt-0.5">Raw Material Cost Allocation</div>
           </div>
@@ -335,7 +406,17 @@ export const RecipePage: React.FC = () => {
             </div>
           </div>
           <div className="space-y-1">
-            <div className="text-2xl font-extrabold text-purple-600 dark:text-purple-400 leading-none">74.3% Avg Margin</div>
+            <div className="text-2xl font-extrabold text-purple-600 dark:text-purple-400 leading-none">
+              {recipes.length > 0 ? (
+                `${Math.round(
+                  recipes.reduce((acc, r) => {
+                    const profit = r.dealerPrice - r.unitCost;
+                    const margin = r.dealerPrice > 0 ? (profit / r.dealerPrice) * 100 : 0;
+                    return acc + margin;
+                  }, 0) / recipes.length
+                )}% Avg Margin`
+              ) : '0% Avg Margin'}
+            </div>
             <div className="text-[11px] text-purple-600 font-semibold pt-0.5">MRP vs Unit Cost Spread</div>
           </div>
         </div>
@@ -363,24 +444,32 @@ export const RecipePage: React.FC = () => {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search recipes by product name or ingredient (Maida, Sugar, Yeast...)..."
+            placeholder="Search recipes by product name or ingredient..."
             className="w-full bg-[#F7F9FB] dark:bg-slate-900 text-xs text-[#1C1C1C] dark:text-slate-100 placeholder-[#8C8C8C] dark:placeholder-slate-500 pl-9 pr-4 py-2 rounded-xl border border-transparent dark:border-slate-700 focus:outline-none focus:bg-white dark:focus:bg-slate-900 transition"
           />
         </div>
 
         <div className="flex items-center gap-2.5 w-full md:w-auto shrink-0 justify-between md:justify-end">
-          <Filter className="w-3.5 h-3.5 text-[#8C8C8C] dark:text-slate-400" />
-          <select 
-            value={selectedCategory} 
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="bg-[#F7F9FB] dark:bg-slate-900 text-xs text-[#1C1C1C] dark:text-slate-200 font-semibold border border-[#E2E8F0] dark:border-slate-700 rounded-xl px-3 py-2 focus:outline-none shrink-0"
-          >
-            <option value="All">All Product Categories</option>
-            <option value="Bread">Bread Formulations</option>
-            <option value="Buns">Buns & Rolls</option>
-            <option value="Cakes">Cakes & Pastries</option>
-            <option value="Rusk">Toast Rusk</option>
-          </select>
+          <div className="w-52 shrink-0">
+            <CustomSelect 
+              value={selectedCategory} 
+              onChange={setSelectedCategory}
+              options={[
+                { value: 'All', label: 'All Product Categories' },
+                ...Array.from(
+                  new Set([
+                    ...categories.map((c: any) => c.name || c),
+                    ...products.map((p: any) => typeof p.category === 'string' ? p.category : p.category?.name).filter(Boolean)
+                  ])
+                ).map((catName: string) => ({
+                  value: catName,
+                  label: `${catName} Formulations`,
+                  badge: catName.substring(0, 5).toUpperCase()
+                }))
+              ]}
+              placeholder="Filter Category"
+            />
+          </div>
         </div>
       </div>
 
@@ -627,17 +716,16 @@ export const RecipePage: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold mb-1">Target Finished Product SKU *</label>
-                  <select
-                    value={productName}
-                    onChange={(e) => setProductName(e.target.value)}
-                    className="w-full bg-[#F7F9FB] dark:bg-slate-800 text-xs font-semibold px-3 py-2 rounded-xl border border-[#E2E8F0] dark:border-slate-700 focus:outline-none"
-                  >
-                    <option value="Standard White Bread (400g)">Standard White Bread (400g)</option>
-                    <option value="Whole Wheat Milk Bread (400g)">Whole Wheat Milk Bread (400g)</option>
-                    <option value="Butter Sweet Bun (6 Pcs)">Butter Sweet Bun (6 Pcs)</option>
-                    <option value="Fruit Slice Cake (250g)">Fruit Slice Cake (250g)</option>
-                    <option value="Crispy Garlic Toast Rusk (200g)">Crispy Garlic Toast Rusk (200g)</option>
-                  </select>
+                  <CustomSelect
+                    value={selectedProductId ? String(selectedProductId) : ''}
+                    onChange={handleProductChange}
+                    options={products.map(p => ({
+                      value: String(p.id),
+                      label: `${p.name} (${p.productCode || `SKU-${p.id}`})`,
+                      badge: p.weightGrams ? `${p.weightGrams}g` : '400g'
+                    }))}
+                    placeholder="Select Target SKU"
+                  />
                 </div>
 
                 <div>
@@ -646,7 +734,7 @@ export const RecipePage: React.FC = () => {
                     type="number"
                     value={batchOutput}
                     onChange={(e) => setBatchOutput(e.target.value)}
-                    className="w-full bg-[#F7F9FB] dark:bg-slate-800 text-xs font-bold px-3 py-2 rounded-xl border border-[#E2E8F0] dark:border-slate-700 focus:outline-none"
+                    className="w-full bg-[#F7F9FB] dark:bg-slate-800 text-xs font-bold px-3.5 py-2.5 rounded-xl border border-[#E2E8F0] dark:border-slate-700 focus:outline-none"
                   />
                 </div>
               </div>
@@ -669,16 +757,17 @@ export const RecipePage: React.FC = () => {
                     <div key={idx} className="p-3 bg-[#F7F9FB] dark:bg-slate-800/60 rounded-xl border border-[#F0F2F5] dark:border-slate-700 grid grid-cols-12 gap-2.5 items-center">
                       {/* Material Select Dropdown */}
                       <div className="col-span-5">
-                        <label className="block text-[9px] font-bold text-[#8C8C8C] mb-0.5">Select Ingredient</label>
-                        <select
-                          value={item.material}
-                          onChange={(e) => handleIngredientChange(idx, 'material', e.target.value)}
-                          className="w-full bg-white dark:bg-slate-900 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-[#E2E8F0] dark:border-slate-700 focus:outline-none"
-                        >
-                          {rawMaterialOptions.map((opt, i) => (
-                            <option key={i} value={opt.name}>{opt.name}</option>
-                          ))}
-                        </select>
+                        <label className="block text-[9px] font-bold text-[#8C8C8C] mb-0.5">Select Ingredient *</label>
+                        <CustomSelect
+                          value={item.rawMaterialId ? String(item.rawMaterialId) : ''}
+                          onChange={val => handleIngredientChange(idx, 'rawMaterialId', val)}
+                          options={rawMaterials.map(rm => ({
+                            value: String(rm.id),
+                            label: rm.name,
+                            badge: `₹${rm.unitCost || 0}/${rm.unit || 'KG'}`
+                          }))}
+                          placeholder="Select Ingredient"
+                        />
                       </div>
 
                       <div className="col-span-2">

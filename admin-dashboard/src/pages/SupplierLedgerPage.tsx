@@ -16,6 +16,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { supplierLedgersApi, suppliersApi, ApiSupplier, ApiSupplierLedger } from '../services/apiService';
+import { CustomSelect } from '../components/common';
 
 export const SupplierLedgerPage: React.FC = () => {
   const [suppliers, setSuppliers] = useState<ApiSupplier[]>([]);
@@ -111,19 +112,16 @@ export const SupplierLedgerPage: React.FC = () => {
             <label className="block text-[11px] font-bold uppercase tracking-wider text-[#8C8C8C] mb-1">
               Select Raw Material Supplier
             </label>
-            <select
+            <CustomSelect
               value={selectedSupplierId}
-              onChange={e => handleSupplierSelect(Number(e.target.value))}
-              className="w-full px-3 py-2 bg-[#F7F9FB] dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-700 rounded-xl text-xs font-bold text-[#1C1C1C] dark:text-white focus:outline-none"
-            >
-              {suppliers.length > 0 ? (
-                suppliers.map(s => (
-                  <option key={s.id} value={s.id}>{s.name} ({s.supplierCode})</option>
-                ))
-              ) : (
-                <option value="">No suppliers available</option>
-              )}
-            </select>
+              onChange={val => handleSupplierSelect(Number(val))}
+              options={suppliers.map(s => ({
+                value: s.id,
+                label: `${s.name} (${s.supplierCode})`,
+                badge: s.supplierCode
+              }))}
+              placeholder="Select Raw Material Supplier"
+            />
           </div>
 
           <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6 bg-[#F7F9FB] dark:bg-slate-900/60 p-3.5 rounded-xl border border-[#ECEFF2] dark:border-slate-800">

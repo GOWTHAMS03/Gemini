@@ -8,7 +8,9 @@ import { ProductsPage } from './pages/ProductsPage';
 import { CategoriesPage } from './pages/CategoriesPage';
 import { RecipePage } from './pages/RecipePage';
 import { ProductionPage } from './pages/ProductionPage';
+import { PackagingPage } from './pages/PackagingPage';
 import { RawMaterialPage } from './pages/RawMaterialPage';
+import { InventoryPage } from './pages/InventoryPage';
 import { TripsPage } from './pages/TripsPage';
 import { ShopsPage } from './pages/ShopsPage';
 import { InvoicesPage } from './pages/InvoicesPage';
@@ -25,10 +27,14 @@ import { EmployeesPage } from './pages/EmployeesPage';
 import { ShopVisitPage } from './pages/ShopVisitPage';
 import { TripDispatchModulePage } from './pages/TripDispatchModulePage';
 import { WeeklyTripPlanningPage } from './pages/WeeklyTripPlanningPage';
+import { TruckInventoryPage } from './pages/TruckInventoryPage';
 import { LoginPage } from './pages/LoginPage';
 
 const routeTitleMap: Record<string, string> = {
   '/': 'Overview',
+  '/inventory': 'Central Inventory Hub',
+  '/truck-inventory': 'Fleet Truck Inventory & Dispatch Station',
+  '/packaging': 'Bulk Packaging & Dispatch Unit',
   '/employees': 'Employee Management',
   '/products': 'Products',
   '/categories': 'Categories',
@@ -139,6 +145,9 @@ const AppContent: React.FC = () => {
         <main className="p-3 sm:p-6 flex-1 overflow-y-auto">
           <Routes>
             <Route path="/" element={<DashboardPage />} />
+            <Route path="/inventory" element={<InventoryPage />} />
+            <Route path="/truck-inventory" element={<TruckInventoryPage />} />
+            <Route path="/packaging" element={<PackagingPage />} />
             <Route path="/employees" element={<EmployeesPage />} />
             <Route path="/products" element={<ProductsPage />} />
             <Route path="/categories" element={<CategoriesPage />} />

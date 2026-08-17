@@ -23,6 +23,7 @@ import {
   ApiSupplier, 
   ApiRawMaterial 
 } from '../services/apiService';
+import { CustomSelect } from '../components/common';
 
 export const PurchaseBillingPage: React.FC = () => {
   const [purchases, setPurchases] = useState<ApiPurchaseInvoice[]>([]);
@@ -384,30 +385,31 @@ export const PurchaseBillingPage: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold mb-1">Select Supplier *</label>
-                  <select
+                  <CustomSelect
                     value={selectedSupplierId}
-                    onChange={e => setSelectedSupplierId(Number(e.target.value))}
-                    className="w-full bg-[#F7F9FB] dark:bg-slate-800 text-xs font-semibold px-3 py-2 rounded-xl border border-[#E2E8F0] dark:border-slate-700 focus:outline-none"
-                  >
-                    <option value="">-- Choose Supplier --</option>
-                    {suppliers.map(s => (
-                      <option key={s.id} value={s.id}>{s.name} ({s.supplierCode})</option>
-                    ))}
-                  </select>
+                    onChange={val => setSelectedSupplierId(Number(val))}
+                    options={suppliers.map(s => ({
+                      value: s.id,
+                      label: `${s.name} (${s.supplierCode})`,
+                      badge: s.supplierCode
+                    }))}
+                    placeholder="-- Choose Supplier --"
+                  />
                 </div>
 
                 <div>
                   <label className="block text-[11px] font-bold mb-1">Payment Terms *</label>
-                  <select
+                  <CustomSelect
                     value={paymentMode}
-                    onChange={e => setPaymentMode(e.target.value)}
-                    className="w-full bg-[#F7F9FB] dark:bg-slate-800 text-xs font-semibold px-3 py-2 rounded-xl border border-[#E2E8F0] dark:border-slate-700 focus:outline-none"
-                  >
-                    <option value="CREDIT">Supplier Credit Account</option>
-                    <option value="CASH">Instant Cash</option>
-                    <option value="BANK_TRANSFER">Bank Transfer / NEFT</option>
-                    <option value="UPI">UPI</option>
-                  </select>
+                    onChange={val => setPaymentMode(val)}
+                    options={[
+                      { value: 'CREDIT', label: 'Supplier Credit Account', badge: 'CREDIT' },
+                      { value: 'CASH', label: 'Instant Cash', badge: 'CASH' },
+                      { value: 'BANK_TRANSFER', label: 'Bank Transfer / NEFT', badge: 'NEFT' },
+                      { value: 'UPI', label: 'UPI Payout', badge: 'UPI' },
+                    ]}
+                    placeholder="Select Terms"
+                  />
                 </div>
               </div>
 
@@ -426,16 +428,16 @@ export const PurchaseBillingPage: React.FC = () => {
                 {purchaseItems.map((item, idx) => (
                   <div key={idx} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-[#F7F9FB] dark:bg-slate-800/60 p-3 rounded-xl border border-[#ECEFF2] dark:border-slate-800">
                     <div className="flex-1">
-                      <select
+                      <CustomSelect
                         value={item.rawMaterialId}
-                        onChange={e => handleItemChange(idx, 'rawMaterialId', e.target.value)}
-                        className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border rounded-lg text-xs font-semibold"
-                      >
-                        <option value="0">-- Select Raw Material --</option>
-                        {rawMaterials.map(r => (
-                          <option key={r.id} value={r.id}>{r.name} (Code: {r.materialCode})</option>
-                        ))}
-                      </select>
+                        onChange={val => handleItemChange(idx, 'rawMaterialId', val)}
+                        options={rawMaterials.map(r => ({
+                          value: r.id,
+                          label: `${r.name} (${r.materialCode})`,
+                          badge: r.materialCode
+                        }))}
+                        placeholder="-- Select Raw Material --"
+                      />
                     </div>
                     <div className="flex items-center gap-2">
                       <input

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { CustomSelect } from '../components/common';
 import { 
   MapPin, 
   Plus, 
@@ -532,15 +533,18 @@ export const RoutesPage: React.FC = () => {
 
         {/* Status Filter */}
         <div className="flex items-center gap-2.5 w-full md:w-auto shrink-0 justify-between md:justify-end">
-          <select 
-            value={statusFilter} 
-            onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="bg-[#F7F9FB] dark:bg-slate-900 text-xs text-[#1C1C1C] dark:text-slate-200 font-semibold border border-[#E2E8F0] dark:border-slate-700 rounded-xl px-3 py-2 focus:outline-none shrink-0"
-          >
-            <option value="ALL">All Routes ({routes.length})</option>
-            <option value="ACTIVE">Active Routes</option>
-            <option value="INACTIVE">Inactive Routes</option>
-          </select>
+          <div className="w-48 shrink-0">
+            <CustomSelect 
+              value={statusFilter} 
+              onChange={val => setStatusFilter(val as any)}
+              options={[
+                { value: 'ALL', label: `All Routes (${routes.length})` },
+                { value: 'ACTIVE', label: 'Active Routes', badge: 'ACTIVE' },
+                { value: 'INACTIVE', label: 'Inactive Routes', badge: 'OFF' },
+              ]}
+              placeholder="Status Filter"
+            />
+          </div>
         </div>
       </div>
 
@@ -744,14 +748,15 @@ export const RoutesPage: React.FC = () => {
                         <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
                           Status
                         </label>
-                        <select
+                        <CustomSelect
                           value={routeForm.status}
-                          onChange={(e) => setRouteForm({ ...routeForm, status: e.target.value })}
-                          className="w-full bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-700 text-[#1C1C1C] dark:text-white px-3 py-2 rounded-xl text-xs focus:outline-none font-bold"
-                        >
-                          <option value="ACTIVE">Active</option>
-                          <option value="INACTIVE">Inactive</option>
-                        </select>
+                          onChange={val => setRouteForm({ ...routeForm, status: val })}
+                          options={[
+                            { value: 'ACTIVE', label: 'Active', badge: 'ACTIVE' },
+                            { value: 'INACTIVE', label: 'Inactive', badge: 'OFF' },
+                          ]}
+                          placeholder="Select Status"
+                        />
                       </div>
                     </div>
 

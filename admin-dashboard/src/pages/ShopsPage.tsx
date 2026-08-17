@@ -26,6 +26,7 @@ import {
 
 import { LocationPickerMap } from '../components/LocationPickerMap';
 import { ShopDirectoryMap } from '../components/ShopDirectoryMap';
+import { CustomSelect } from '../components/common';
 
 const inputClass = "w-full bg-[#F8F9FA] dark:bg-slate-900 border border-[#E9ECEF] dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-[#1C1C1C] dark:text-slate-200 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/20 transition";
 const labelClass = "block text-[11px] font-bold text-[#8C8C8C] dark:text-slate-400 uppercase mb-1.5 tracking-wider";
@@ -409,39 +410,48 @@ export const ShopsPage: React.FC = () => {
 
         {/* Dropdown Filters */}
         <div className="flex items-center gap-2.5 w-full md:w-auto shrink-0 justify-between md:justify-end flex-wrap">
-          <select 
-            value={customerTypeFilter} 
-            onChange={(e) => setCustomerTypeFilter(e.target.value)}
-            className="bg-[#F7F9FB] dark:bg-slate-900 text-xs text-[#1C1C1C] dark:text-slate-200 font-semibold border border-[#E2E8F0] dark:border-slate-700 rounded-xl px-3 py-2 focus:outline-none shrink-0"
-          >
-            <option value="ALL">All Customer Types</option>
-            <option value="WHOLESALE_AGENT">Wholesale Agents (15% Off)</option>
-            <option value="SHOP">Retail Outlets / Stores (8% Off)</option>
-            <option value="RETAIL_CUSTOMER">Direct Retail Customers (2% Off)</option>
-          </select>
+          <div className="w-48 shrink-0">
+            <CustomSelect 
+              value={customerTypeFilter} 
+              onChange={setCustomerTypeFilter}
+              options={[
+                { value: 'ALL', label: 'All Customer Types' },
+                { value: 'WHOLESALE_AGENT', label: 'Wholesale Agents (15% Off)', badge: '15%' },
+                { value: 'SHOP', label: 'Retail Outlets / Stores (8% Off)', badge: '8%' },
+                { value: 'RETAIL_CUSTOMER', label: 'Direct Retail Customers (2% Off)', badge: '2%' },
+              ]}
+              placeholder="Customer Type"
+            />
+          </div>
 
-          <select 
-            value={routeFilter} 
-            onChange={(e) => setRouteFilter(e.target.value)}
-            className="bg-[#F7F9FB] dark:bg-slate-900 text-xs text-[#1C1C1C] dark:text-slate-200 font-semibold border border-[#E2E8F0] dark:border-slate-700 rounded-xl px-3 py-2 focus:outline-none shrink-0"
-          >
-            <option value="ALL">All Delivery Routes</option>
-            <option value="North Chennai Route A">North Chennai Route A</option>
-            <option value="South Chennai Route B">South Chennai Route B</option>
-            <option value="Chennai Central Express">Chennai Central Express</option>
-            <option value="East Coast Industrial">East Coast Industrial</option>
-          </select>
+          <div className="w-52 shrink-0">
+            <CustomSelect 
+              value={routeFilter} 
+              onChange={setRouteFilter}
+              options={[
+                { value: 'ALL', label: 'All Delivery Routes' },
+                { value: 'North Chennai Route A', label: 'North Chennai Route A' },
+                { value: 'South Chennai Route B', label: 'South Chennai Route B' },
+                { value: 'Chennai Central Express', label: 'Chennai Central Express' },
+                { value: 'East Coast Industrial', label: 'East Coast Industrial' },
+              ]}
+              placeholder="Delivery Route"
+            />
+          </div>
 
-          <select 
-            value={creditFilter} 
-            onChange={(e) => setCreditFilter(e.target.value)}
-            className="bg-[#F7F9FB] dark:bg-slate-900 text-xs text-[#1C1C1C] dark:text-slate-200 font-semibold border border-[#E2E8F0] dark:border-slate-700 rounded-xl px-3 py-2 focus:outline-none shrink-0"
-          >
-            <option value="ALL">All Credit Status</option>
-            <option value="OUTSTANDING">Has Outstanding Balance</option>
-            <option value="NEAR_LIMIT">Near Credit Limit (&gt;80%)</option>
-            <option value="CLEAR">Clear (Zero Due)</option>
-          </select>
+          <div className="w-48 shrink-0">
+            <CustomSelect 
+              value={creditFilter} 
+              onChange={setCreditFilter}
+              options={[
+                { value: 'ALL', label: 'All Credit Status' },
+                { value: 'OUTSTANDING', label: 'Has Outstanding Balance', badge: 'DUE' },
+                { value: 'NEAR_LIMIT', label: 'Near Credit Limit (>80%)', badge: 'ALERT' },
+                { value: 'CLEAR', label: 'Clear (Zero Due)', badge: 'PAID' },
+              ]}
+              placeholder="Credit Status"
+            />
+          </div>
 
           {/* View Mode Switcher Buttons */}
           <div className="flex items-center bg-[#F7F9FB] dark:bg-slate-900 p-1 rounded-xl border border-[#E2E8F0] dark:border-slate-700 shrink-0">
@@ -835,16 +845,16 @@ export const ShopsPage: React.FC = () => {
                   <label className="block text-[11px] font-bold text-purple-700 dark:text-purple-400 uppercase tracking-wider">
                     Buyer / Customer Category *
                   </label>
-                  <select
-                    name="customerType"
+                  <CustomSelect
                     value={formData.customerType}
-                    onChange={handleInputChange}
-                    className={selectClass}
-                  >
-                    <option value="SHOP">Shop / Retail Store (Adheres to Product Minimum Selling Prices)</option>
-                    <option value="WHOLESALE_AGENT">Wholesale Dealer (Configured Individual Discount %)</option>
-                    <option value="RETAIL_CUSTOMER">Customer (Manual Price Entry per Invoice, No Onboarding Discount)</option>
-                  </select>
+                    onChange={val => setFormData(prev => ({ ...prev, customerType: val as any }))}
+                    options={[
+                      { value: 'SHOP', label: 'Shop / Retail Store', description: 'Adheres to Product Minimum Selling Prices', badge: 'STORE' },
+                      { value: 'WHOLESALE_AGENT', label: 'Wholesale Dealer', description: 'Configured Individual Discount %', badge: 'DEALER' },
+                      { value: 'RETAIL_CUSTOMER', label: 'Direct Retail Customer', description: 'Manual Price Entry per Invoice, No Onboarding Discount', badge: 'RETAIL' },
+                    ]}
+                    placeholder="Select Customer Category"
+                  />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -975,17 +985,17 @@ export const ShopsPage: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className={labelClass}>Delivery Route *</label>
-                    <select
-                      name="route"
+                    <CustomSelect
                       value={formData.route}
-                      onChange={handleInputChange}
-                      className={selectClass}
-                    >
-                      <option value="Salem North Commercial Route">Salem North Commercial Route</option>
-                      <option value="Salem South Route">Salem South Route</option>
-                      <option value="Attur - Mettur Route">Attur - Mettur Route</option>
-                      <option value="Omalur Industrial Route">Omalur Industrial Route</option>
-                    </select>
+                      onChange={val => setFormData(prev => ({ ...prev, route: val }))}
+                      options={[
+                        { value: 'Salem North Commercial Route', label: 'Salem North Commercial Route' },
+                        { value: 'Salem South Route', label: 'Salem South Route' },
+                        { value: 'Attur - Mettur Route', label: 'Attur - Mettur Route' },
+                        { value: 'Omalur Industrial Route', label: 'Omalur Industrial Route' },
+                      ]}
+                      placeholder="Select Delivery Route"
+                    />
                   </div>
                 </div>
               </div>

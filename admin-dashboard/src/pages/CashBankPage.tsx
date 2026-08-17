@@ -16,6 +16,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { cashBankApi, ApiCashBankTransaction } from '../services/apiService';
+import { CustomSelect } from '../components/common';
 
 export const CashBankPage: React.FC = () => {
   const [transactions, setTransactions] = useState<ApiCashBankTransaction[]>([]);
@@ -281,27 +282,29 @@ export const CashBankPage: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold mb-1">Target Account *</label>
-                  <select
+                  <CustomSelect
                     value={accountType}
-                    onChange={e => setAccountType(e.target.value)}
-                    className="w-full bg-[#F7F9FB] dark:bg-slate-800 text-xs font-semibold px-3 py-2 rounded-xl border border-[#E2E8F0] dark:border-slate-700 focus:outline-none"
-                  >
-                    <option value="CASH">Cash Drawer</option>
-                    <option value="BANK">Bank Account</option>
-                  </select>
+                    onChange={val => setAccountType(val)}
+                    options={[
+                      { value: 'CASH', label: 'Cash Drawer', badge: 'CASH' },
+                      { value: 'BANK', label: 'Bank Account', badge: 'BANK' },
+                    ]}
+                    placeholder="Select Account"
+                  />
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold mb-1">Movement Type *</label>
-                  <select
+                  <CustomSelect
                     value={txType}
-                    onChange={e => setTxType(e.target.value)}
-                    className="w-full bg-[#F7F9FB] dark:bg-slate-800 text-xs font-semibold px-3 py-2 rounded-xl border border-[#E2E8F0] dark:border-slate-700 focus:outline-none"
-                  >
-                    <option value="CASH_IN">Cash In (+ Inflow)</option>
-                    <option value="CASH_OUT">Cash Out (- Outflow)</option>
-                    <option value="BANK_DEPOSIT">Bank Deposit (+)</option>
-                    <option value="BANK_WITHDRAWAL">Bank Withdrawal (-)</option>
-                  </select>
+                    onChange={val => setTxType(val)}
+                    options={[
+                      { value: 'CASH_IN', label: 'Cash In (+ Inflow)', badge: '+ IN' },
+                      { value: 'CASH_OUT', label: 'Cash Out (- Outflow)', badge: '- OUT' },
+                      { value: 'BANK_DEPOSIT', label: 'Bank Deposit (+)', badge: '+ DEP' },
+                      { value: 'BANK_WITHDRAWAL', label: 'Bank Withdrawal (-)', badge: '- WDL' },
+                    ]}
+                    placeholder="Select Movement"
+                  />
                 </div>
               </div>
 

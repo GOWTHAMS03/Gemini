@@ -12,6 +12,7 @@ import {
   ApiEmployee
 } from '../services/apiService';
 import api from '../services/apiService';
+import { CustomSelect } from '../components/common';
 
 interface DispatchGroup {
   id: number;
@@ -431,47 +432,53 @@ export const DispatchGroupPage: React.FC = () => {
 
               <div>
                 <label className="block text-slate-500 font-bold mb-1 uppercase text-[10px]">Driver *</label>
-                <select
+                <CustomSelect
                   value={formData.driverId}
-                  onChange={e => setFormData({ ...formData, driverId: e.target.value })}
-                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2"
-                  required
-                >
-                  <option value="">-- Select Driver --</option>
-                  {drivers.map(d => (
-                    <option key={d.id} value={d.id}>{d.fullName}</option>
-                  ))}
-                </select>
+                  onChange={val => setFormData({ ...formData, driverId: val })}
+                  options={[
+                    { value: '', label: '-- Select Driver --' },
+                    ...drivers.map(d => ({
+                      value: d.id,
+                      label: d.fullName,
+                      badge: 'DRIVER'
+                    }))
+                  ]}
+                  placeholder="-- Select Driver --"
+                />
               </div>
 
               <div>
                 <label className="block text-slate-500 font-bold mb-1 uppercase text-[10px]">Sales Person *</label>
-                <select
+                <CustomSelect
                   value={formData.salesPersonId}
-                  onChange={e => setFormData({ ...formData, salesPersonId: e.target.value })}
-                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2"
-                  required
-                >
-                  <option value="">-- Select Sales Executive --</option>
-                  {salesPersons.map(sp => (
-                    <option key={sp.id} value={sp.id}>{sp.fullName}</option>
-                  ))}
-                </select>
+                  onChange={val => setFormData({ ...formData, salesPersonId: val })}
+                  options={[
+                    { value: '', label: '-- Select Sales Executive --' },
+                    ...salesPersons.map(sp => ({
+                      value: sp.id,
+                      label: sp.fullName,
+                      badge: 'SALES'
+                    }))
+                  ]}
+                  placeholder="-- Select Sales Executive --"
+                />
               </div>
 
               <div>
                 <label className="block text-slate-500 font-bold mb-1 uppercase text-[10px]">Vehicle *</label>
-                <select
+                <CustomSelect
                   value={formData.vehicleId}
-                  onChange={e => setFormData({ ...formData, vehicleId: e.target.value })}
-                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2"
-                  required
-                >
-                  <option value="">-- Select Vehicle --</option>
-                  {vehicles.map(v => (
-                    <option key={v.id} value={v.id}>{v.vehicleNumber} ({v.model})</option>
-                  ))}
-                </select>
+                  onChange={val => setFormData({ ...formData, vehicleId: val })}
+                  options={[
+                    { value: '', label: '-- Select Vehicle --' },
+                    ...vehicles.map(v => ({
+                      value: v.id,
+                      label: `${v.vehicleNumber} (${v.model})`,
+                      badge: 'VEHICLE'
+                    }))
+                  ]}
+                  placeholder="-- Select Vehicle --"
+                />
               </div>
 
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-700">

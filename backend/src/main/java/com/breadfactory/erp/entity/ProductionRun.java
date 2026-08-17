@@ -118,6 +118,78 @@ public class ProductionRun {
     @Column(name = "batch_number", length = 100)
     private String batchNumber;
 
+    // ─── 3-Stage Start & Stop Timestamps ────────────────────────────────────
+
+    @Column(name = "stage1_start_time")
+    private ZonedDateTime stage1StartTime;
+
+    @Column(name = "stage1_end_time")
+    private ZonedDateTime stage1EndTime;
+
+    @Builder.Default
+    @Column(name = "stage1_completed")
+    private Boolean stage1Completed = false;
+
+    @Column(name = "stage2_start_time")
+    private ZonedDateTime stage2StartTime;
+
+    @Column(name = "stage2_end_time")
+    private ZonedDateTime stage2EndTime;
+
+    @Builder.Default
+    @Column(name = "stage2_completed")
+    private Boolean stage2Completed = false;
+
+    @Column(name = "stage3_start_time")
+    private ZonedDateTime stage3StartTime;
+
+    @Column(name = "stage3_end_time")
+    private ZonedDateTime stage3EndTime;
+
+    @Builder.Default
+    @Column(name = "stage3_completed")
+    private Boolean stage3Completed = false;
+
+    // ─── Stage 3: Packaging Module Management (Boxes & Bundles) ─────────────
+
+    @Builder.Default
+    @Column(name = "box_count")
+    private Integer boxCount = 0;
+
+    @Builder.Default
+    @Column(name = "units_per_box")
+    private Integer unitsPerBox = 24;
+
+    @Builder.Default
+    @Column(name = "bundle_count")
+    private Integer bundleCount = 0;
+
+    @Builder.Default
+    @Column(name = "units_per_bundle")
+    private Integer unitsPerBundle = 10;
+
+    @Builder.Default
+    @Column(name = "cover_count")
+    private Integer coverCount = 0;
+
+    @Builder.Default
+    @Column(name = "units_per_cover")
+    private Integer unitsPerCover = 63; // 63 packets per 1 cover (₹30 Rusk)
+
+    @Builder.Default
+    @Column(name = "tin_count")
+    private Integer tinCount = 0; // 3kg Din / Tin Rusk
+
+    @Builder.Default
+    @Column(name = "loose_units")
+    private Integer looseUnits = 0;
+
+    @Column(name = "packaging_type", length = 50)
+    private String packagingType; // "BOX", "BUNDLE", "COVER", "TIN_3KG", "MIXED"
+
+    @Column(name = "packaging_notes", length = 500)
+    private String packagingNotes;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private ZonedDateTime createdAt;

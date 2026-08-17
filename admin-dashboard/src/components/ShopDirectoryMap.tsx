@@ -3,6 +3,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Store, Navigation, Phone, MapPin, Search, Filter, Layers, CreditCard, ChevronRight } from 'lucide-react';
 import { ApiShop } from '../services/apiService';
+import { CustomSelect } from './common';
 
 interface ShopDirectoryMapProps {
   shops: any[];
@@ -221,29 +222,34 @@ export const ShopDirectoryMap: React.FC<ShopDirectoryMapProps> = ({
           </div>
 
           {/* Route filter */}
-          <select
-            value={selectedRouteFilter}
-            onChange={(e) => setSelectedRouteFilter(e.target.value)}
-            className="px-2.5 py-1.5 bg-slate-950 border border-slate-700/80 rounded-lg text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          >
-            <option value="ALL">All Delivery Routes</option>
-            {availableRoutes.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
-            ))}
-          </select>
+          <div className="w-48 shrink-0">
+            <CustomSelect
+              value={selectedRouteFilter}
+              onChange={setSelectedRouteFilter}
+              options={[
+                { value: 'ALL', label: 'All Delivery Routes' },
+                ...availableRoutes.map((r) => ({
+                  value: r,
+                  label: r
+                }))
+              ]}
+              placeholder="All Delivery Routes"
+            />
+          </div>
 
           {/* Status filter */}
-          <select
-            value={selectedStatusFilter}
-            onChange={(e) => setSelectedStatusFilter(e.target.value)}
-            className="px-2.5 py-1.5 bg-slate-950 border border-slate-700/80 rounded-lg text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          >
-            <option value="ALL">All Credit Statuses</option>
-            <option value="ACTIVE">Active (Normal)</option>
-            <option value="CREDIT_HOLD">Credit Hold (Over Limit)</option>
-          </select>
+          <div className="w-52 shrink-0">
+            <CustomSelect
+              value={selectedStatusFilter}
+              onChange={setSelectedStatusFilter}
+              options={[
+                { value: 'ALL', label: 'All Credit Statuses' },
+                { value: 'ACTIVE', label: 'Active (Normal)', badge: 'ACTIVE' },
+                { value: 'CREDIT_HOLD', label: 'Credit Hold (Over Limit)', badge: 'HOLD' },
+              ]}
+              placeholder="All Credit Statuses"
+            />
+          </div>
         </div>
 
         {/* Legend */}

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Toast } from '../components/common';
 import { 
   FileText, 
   Download, 
@@ -239,13 +240,8 @@ export const ReportsPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Success Notification Banner */}
-      {downloadSuccessMsg && (
-        <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in">
-          <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-          <span>{downloadSuccessMsg}</span>
-        </div>
-      )}
+      {/* Toast Notification (Bottom Center) */}
+      <Toast message={downloadSuccessMsg} onClose={() => setDownloadSuccessMsg('')} />
 
       {/* Header */}
       <div className="flex items-center justify-between">

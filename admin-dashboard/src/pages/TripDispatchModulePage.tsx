@@ -6,6 +6,7 @@ import {
   Building2, LayoutGrid, List, Eye, ArrowLeft, TrendingUp, CheckCircle, ShieldAlert, PackageCheck, Filter, Boxes
 } from 'lucide-react';
 import api, { routeApi, salesDeliveryApi, ApiRouteShop } from '../services/apiService';
+import { CustomSelect, Toast } from '../components/common';
 
 interface DispatchGroup {
   id: number;
@@ -829,18 +830,8 @@ export const TripDispatchModulePage: React.FC = () => {
 
   return (
     <div className="space-y-6 pt-1">
-      {/* Toast Notification */}
-      {toastMessage && (
-        <div className="p-4 bg-slate-900 text-emerald-400 border border-emerald-500/50 rounded-2xl text-xs font-extrabold flex items-center justify-between shadow-2xl shadow-emerald-950/40 animate-in fade-in slide-in-from-bottom-4 fixed bottom-6 right-6 z-[999999] max-w-md">
-          <div className="flex items-center gap-2.5">
-            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-            <span className="leading-snug">{toastMessage}</span>
-          </div>
-          <button onClick={() => setToastMessage(null)} className="text-slate-400 hover:text-white hover:opacity-75 cursor-pointer ml-3">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
+      {/* Toast Notification (Bottom Center) */}
+      <Toast message={toastMessage} onClose={() => setToastMessage(null)} />
 
       {/* Styled Non-Clipping Header Card (Exact Inventory & Production Module Style) */}
       <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-[#F0F2F5] dark:border-slate-700 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -1068,47 +1059,53 @@ export const TripDispatchModulePage: React.FC = () => {
 
                     <div>
                       <label className="block text-xs font-bold mb-1 text-[#1C1C1C] dark:text-white">Assigned Sales Executive *</label>
-                      <select
+                      <CustomSelect
                         value={newGroupForm.salesPersonId}
-                        onChange={(e) => setNewGroupForm({ ...newGroupForm, salesPersonId: e.target.value })}
-                        required
-                        className="w-full bg-white dark:bg-slate-800 text-xs p-3 rounded-xl border border-[#E2E8F0] dark:border-slate-600 focus:outline-none font-semibold text-[#1C1C1C] dark:text-white"
-                      >
-                        <option value="">Select Sales Executive</option>
-                        {salesPersons.map((sp) => (
-                          <option key={sp.id} value={sp.id}>{sp.fullName || sp.name} ({sp.username})</option>
-                        ))}
-                      </select>
+                        onChange={val => setNewGroupForm({ ...newGroupForm, salesPersonId: val })}
+                        options={[
+                          { value: '', label: 'Select Sales Executive' },
+                          ...salesPersons.map((sp) => ({
+                            value: sp.id,
+                            label: `${sp.fullName || sp.name} (${sp.username})`,
+                            badge: 'SALES'
+                          }))
+                        ]}
+                        placeholder="Select Sales Executive"
+                      />
                     </div>
 
                     <div>
                       <label className="block text-xs font-bold mb-1 text-[#1C1C1C] dark:text-white">Assigned Driver *</label>
-                      <select
+                      <CustomSelect
                         value={newGroupForm.driverId}
-                        onChange={(e) => setNewGroupForm({ ...newGroupForm, driverId: e.target.value })}
-                        required
-                        className="w-full bg-white dark:bg-slate-800 text-xs p-3 rounded-xl border border-[#E2E8F0] dark:border-slate-600 focus:outline-none font-semibold text-[#1C1C1C] dark:text-white"
-                      >
-                        <option value="">Select Delivery Driver</option>
-                        {drivers.map((d) => (
-                          <option key={d.id} value={d.id}>{d.fullName || d.name} ({d.username})</option>
-                        ))}
-                      </select>
+                        onChange={val => setNewGroupForm({ ...newGroupForm, driverId: val })}
+                        options={[
+                          { value: '', label: 'Select Delivery Driver' },
+                          ...drivers.map((d) => ({
+                            value: d.id,
+                            label: `${d.fullName || d.name} (${d.username})`,
+                            badge: 'DRIVER'
+                          }))
+                        ]}
+                        placeholder="Select Delivery Driver"
+                      />
                     </div>
 
                     <div className="md:col-span-2">
                       <label className="block text-xs font-bold mb-1 text-[#1C1C1C] dark:text-white">Assigned Truck / Vehicle *</label>
-                      <select
+                      <CustomSelect
                         value={newGroupForm.vehicleId}
-                        onChange={(e) => setNewGroupForm({ ...newGroupForm, vehicleId: e.target.value })}
-                        required
-                        className="w-full bg-white dark:bg-slate-800 text-xs p-3 rounded-xl border border-[#E2E8F0] dark:border-slate-600 focus:outline-none font-mono font-semibold text-[#1C1C1C] dark:text-white"
-                      >
-                        <option value="">Select Vehicle / Truck</option>
-                        {vehicles.map((v) => (
-                          <option key={v.id} value={v.id}>{v.vehicleNumber} - {v.model || 'Delivery Van'}</option>
-                        ))}
-                      </select>
+                        onChange={val => setNewGroupForm({ ...newGroupForm, vehicleId: val })}
+                        options={[
+                          { value: '', label: 'Select Vehicle / Truck' },
+                          ...vehicles.map((v) => ({
+                            value: v.id,
+                            label: `${v.vehicleNumber} - ${v.model || 'Delivery Van'}`,
+                            badge: 'FLEET'
+                          }))
+                        ]}
+                        placeholder="Select Vehicle / Truck"
+                      />
                     </div>
                   </div>
 
@@ -1462,22 +1459,30 @@ export const TripDispatchModulePage: React.FC = () => {
               />
             </div>
 
-            <div className="flex items-center gap-1 bg-[#F7F9FB] dark:bg-slate-900 p-1 rounded-xl border border-[#E2E8F0] dark:border-slate-700 shrink-0">
-              <button
-                type="button"
-                onClick={() => setViewMode('grid')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${viewMode === 'grid' ? 'bg-white dark:bg-slate-800 text-[#1C1C1C] dark:text-white shadow-xs' : 'text-[#8C8C8C]'
-                  }`}
-              >
-                <LayoutGrid className="w-3.5 h-3.5" /> Cards Grid
-              </button>
+            <div className="flex items-center p-1 bg-[#F4F5F7] dark:bg-slate-900 rounded-2xl border border-[#E9ECEF] dark:border-slate-800 shrink-0">
               <button
                 type="button"
                 onClick={() => setViewMode('list')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${viewMode === 'list' ? 'bg-white dark:bg-slate-800 text-[#1C1C1C] dark:text-white shadow-xs' : 'text-[#8C8C8C]'
-                  }`}
+                className={`p-2 rounded-xl transition cursor-pointer ${
+                  viewMode === 'list' 
+                    ? 'bg-white dark:bg-slate-800 text-[#1C1C1C] dark:text-white shadow-xs' 
+                    : 'text-[#8C8C8C] dark:text-slate-400 hover:text-[#1C1C1C] dark:hover:text-white'
+                }`}
+                title="Table List View"
               >
-                <List className="w-3.5 h-3.5" /> Table List
+                <List className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('grid')}
+                className={`p-2 rounded-xl transition cursor-pointer ${
+                  viewMode === 'grid' 
+                    ? 'bg-white dark:bg-slate-800 text-[#1C1C1C] dark:text-white shadow-xs' 
+                    : 'text-[#8C8C8C] dark:text-slate-400 hover:text-[#1C1C1C] dark:hover:text-white'
+                }`}
+                title="Grid Cards View"
+              >
+                <LayoutGrid className="w-4 h-4" />
               </button>
             </div>
           </div>
@@ -1870,16 +1875,17 @@ export const TripDispatchModulePage: React.FC = () => {
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
                               <div>
                                 <label className="block font-bold mb-1 text-[#1C1C1C] dark:text-white">Status</label>
-                                <select
+                                <CustomSelect
                                   value={visitEditForm.status || editingVisit.status}
-                                  onChange={(e) => setVisitEditForm({ ...visitEditForm, status: e.target.value as any })}
-                                  className="w-full p-2.5 rounded-xl border bg-white dark:bg-slate-800 border-[#E2E8F0] dark:border-slate-600 font-semibold"
-                                >
-                                  <option value="SCHEDULED">SCHEDULED</option>
-                                  <option value="IN_PROGRESS">IN_PROGRESS</option>
-                                  <option value="COMPLETED">COMPLETED</option>
-                                  <option value="CANCELLED">CANCELLED</option>
-                                </select>
+                                  onChange={val => setVisitEditForm({ ...visitEditForm, status: val as any })}
+                                  options={[
+                                    { value: 'SCHEDULED', label: 'SCHEDULED', badge: 'PENDING' },
+                                    { value: 'IN_PROGRESS', label: 'IN_PROGRESS', badge: 'ACTIVE' },
+                                    { value: 'COMPLETED', label: 'COMPLETED', badge: 'DONE' },
+                                    { value: 'CANCELLED', label: 'CANCELLED', badge: 'CANCEL' },
+                                  ]}
+                                  placeholder="Select Status"
+                                />
                               </div>
 
                               <div>

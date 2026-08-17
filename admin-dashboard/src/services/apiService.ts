@@ -187,11 +187,53 @@ export const productApi = {
   delete: (id: number) => api.delete(`/products/${id}`),
 };
 
+export interface CloudinaryDlDocument {
+  name: string;
+  public_id: string;
+  secure_url: string;
+  url: string;
+  format: string;
+  bytes: number;
+  created_at: string;
+  folder: string;
+}
+
+export interface CloudinaryDlListResponse {
+  folder: string;
+  count: number;
+  documents: CloudinaryDlDocument[];
+}
+
 export const mediaApi = {
-  uploadImage: (file: File) => {
+  uploadDriverDl: (file: File, driverName?: string) => {
     const formData = new FormData();
     formData.append('file', file);
-    return api.post<{ secure_url: string; url: string }>('/upload/image', formData, {
+    if (driverName) formData.append('driverName', driverName);
+    return api.post<{
+      secure_url: string;
+      url: string;
+      public_id: string;
+      format: string;
+      bytes: number;
+      folder: string;
+      original_filename?: string;
+    }>('/drivers/upload-dl', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+  getDriverDlDocuments: () =>
+    api.get<CloudinaryDlListResponse>('/drivers/dl-documents'),
+  uploadImage: (file: File, folder?: string) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (folder) formData.append('folder', folder);
+    return api.post<{
+      secure_url: string;
+      url: string;
+      public_id: string;
+      format: string;
+      bytes: number;
+    }>('/upload/image', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
   },
@@ -488,14 +530,17 @@ export interface ProductionRunPayload {
 
 export type ProductionStatus = 'PLANNED' | 'IN_PROGRESS' | 'PAUSED' | 'COMPLETED' | 'CANCELLED';
 export type ProductionStage = 
+  | 'STAGE_1_PREP_BAKE_COOL'
+  | 'STAGE_2_SLICE_PACK_STACK'
+  | 'STAGE_3_ROLL_PACKAGING'
+  | 'STAGE_COMPLETED'
   | 'STAGE_DISPENSING'
   | 'STAGE_MIXING'
   | 'STAGE_DIVIDING'
   | 'STAGE_PROOFING'
   | 'STAGE_BAKING'
   | 'STAGE_COOLING_PACKING'
-  | 'STAGE_QC_RELEASE'
-  | 'STAGE_COMPLETED';
+  | 'STAGE_QC_RELEASE';
 
 export type ProductionShift = 'MORNING_SHIFT' | 'AFTERNOON_SHIFT' | 'NIGHT_SHIFT';
 
@@ -546,6 +591,25 @@ export interface ProductionRunDTO {
   notes?: string;
   startTime?: string;
   endTime?: string;
+  stage1StartTime?: string;
+  stage1EndTime?: string;
+  stage1Completed?: boolean;
+  stage2StartTime?: string;
+  stage2EndTime?: string;
+  stage2Completed?: boolean;
+  stage3StartTime?: string;
+  stage3EndTime?: string;
+  stage3Completed?: boolean;
+  boxCount?: number;
+  unitsPerBox?: number;
+  bundleCount?: number;
+  unitsPerBundle?: number;
+  coverCount?: number;
+  unitsPerCover?: number;
+  tinCount?: number;
+  looseUnits?: number;
+  packagingType?: string;
+  packagingNotes?: string;
   createdAt?: string;
   updatedAt?: string;
   bomItems?: BOMItemDTO[];
@@ -604,6 +668,26 @@ export const productionApi = {
     notes?: string;
   }) => api.post<ProductionRunDTO>('/production/plan', data),
   startRun: (id: number) => api.post<ProductionRunDTO>(`/production/start/${id}`),
+  startStage: (id: number, stageNumber: number) => 
+    api.post<ProductionRunDTO>(`/production/${id}/start-stage/${stageNumber}`),
+  completeStage: (id: number, stageNumber: number, data?: {
+    notes?: string;
+    bakingTempCelsius?: number;
+    bakingTimeMinutes?: number;
+    actualDoughWeightKg?: number;
+  }) => api.post<ProductionRunDTO>(`/production/${id}/complete-stage/${stageNumber}`, data),
+  savePackaging: (id: number, data: {
+    boxCount?: number;
+    unitsPerBox?: number;
+    bundleCount?: number;
+    unitsPerBundle?: number;
+    coverCount?: number;
+    unitsPerCover?: number;
+    tinCount?: number;
+    looseUnits?: number;
+    packagingType?: string;
+    packagingNotes?: string;
+  }) => api.post<ProductionRunDTO>(`/production/${id}/packaging`, data),
   advanceStage: (id: number, data: {
     targetStage: ProductionStage;
     actualDoughWeightKg?: number;
@@ -987,6 +1071,7 @@ export interface ApiEmployee {
   primaryRoute?: string;
   dlNumber?: string;
   dlExpiryDate?: string;
+  dlDocumentUrl?: string;
   govtIdType?: string;
   govtIdNumber?: string;
   policeVerificationStatus?: string;
@@ -995,7 +1080,7 @@ export interface ApiEmployee {
 
 export interface EmployeeCreatePayload {
   username: string;
-  password: string;
+  password?: string;
   fullName: string;
   email?: string;
   phone?: string;
@@ -1013,6 +1098,7 @@ export interface EmployeeCreatePayload {
   primaryRoute?: string;
   dlNumber?: string;
   dlExpiryDate?: string;
+  dlDocumentUrl?: string;
   govtIdType?: string;
   govtIdNumber?: string;
   policeVerificationStatus?: string;
@@ -1498,11 +1584,194 @@ export const factoryApi = {
   delete: (id: number) => api.delete(`/factories/${id}`),
 };
 
+export interface InventoryDashboardDTO {
+  totalFinishedGoodsUnits: number;
+  totalFinishedGoodsValue: number;
+  totalTransitFleetUnits: number;
+  totalTransitFleetValue: number;
+  totalRawMaterialCount: number;
+  totalRawMaterialValue: number;
+  nearExpiryBatchCount: number;
+  lowStockProductCount: number;
+  todayProductionUnits: number;
+  todaySalesUnits: number;
+  nearExpiryItems: NearExpiryItemDTO[];
+  lowStockAlerts: LowStockAlertDTO[];
+}
+
+export interface NearExpiryItemDTO {
+  id: number;
+  productId: number;
+  productName: string;
+  productCode: string;
+  category: string;
+  batchNumber: string;
+  warehouseName: string;
+  quantityAvailable: number;
+  mfgDate: string;
+  expiryDate: string;
+  daysUntilExpiry: number;
+  unitPrice: number;
+  totalValue: number;
+}
+
+export interface LowStockAlertDTO {
+  productId: number;
+  productName: string;
+  productCode: string;
+  category: string;
+  currentStock: number;
+  reorderThreshold: number;
+  status: string;
+}
+
+export interface FinishedGoodsItemDTO {
+  id: number;
+  productId: number;
+  productName: string;
+  productCode: string;
+  category: string;
+  imageUrl?: string;
+  batchNumber: string;
+  warehouseId?: number;
+  warehouseName?: string;
+  quantityAvailable: number;
+  mfgDate: string;
+  expiryDate: string;
+  daysUntilExpiry: number;
+  isExpiringSoon: boolean;
+  mrp: number;
+  wholesalePrice: number;
+  totalValuation: number;
+}
+
+export interface TransitStockItemDTO {
+  tripId: number;
+  tripNumber: string;
+  vehicleNumber: string;
+  driverName: string;
+  routeName: string;
+  tripStatus: string;
+  productId: number;
+  productName: string;
+  productCode: string;
+  loadedQuantity: number;
+  soldQuantity: number;
+  returnedQuantity: number;
+  damagedQuantity: number;
+  availableOnVan: number;
+  unitPrice: number;
+  totalVanStockValue: number;
+}
+
+export interface StockLedgerItemDTO {
+  id: number;
+  productId: number;
+  productName: string;
+  productCode: string;
+  movementType: string;
+  quantity: number;
+  batchNumber?: string;
+  referenceNumber?: string;
+  warehouseName?: string;
+  tripNumber?: string;
+  shopName?: string;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface TruckInventoryDTO {
+  vehicleId: number;
+  vehicleCode: string;
+  vehicleNumber: string;
+  model: string;
+  type: string;
+  capacityKg: number;
+  assignedDriver: string;
+  driverPhone?: string;
+  assignedRoute?: string;
+  tripId?: number;
+  tripNumber: string;
+  tripStatus: string;
+  totalLoadedUnits: number;
+  totalSoldUnits: number;
+  totalReturnedUnits: number;
+  totalDamagedUnits: number;
+  totalAvailableUnits: number;
+  totalWeightKg: number;
+  payloadCapacityPercentage: number;
+  totalStockValue: number;
+  items: TruckInventoryItemDTO[];
+}
+
+export interface TruckInventoryItemDTO {
+  id?: number;
+  productId: number;
+  productName: string;
+  productCode: string;
+  category: string;
+  weightGrams: number;
+  loadedQuantity: number;
+  soldQuantity: number;
+  returnedQuantity: number;
+  damagedQuantity: number;
+  availableQuantity: number;
+  unitPrice: number;
+  lineTotalValue: number;
+  centralWarehouseStock: number;
+}
+
+export interface TruckRefillPayload {
+  vehicleId?: number;
+  vehicleNumber?: string;
+  driverName?: string;
+  notes?: string;
+  items: {
+    productId: number;
+    quantityToRefill: number;
+  }[];
+}
+
+export interface TruckAuditPayload {
+  vehicleId: number;
+  tripId?: number;
+  notes?: string;
+  items: {
+    productId: number;
+    actualPhysicalCount: number;
+    damagedCount: number;
+    expiredCount?: number;
+  }[];
+}
+
+export interface StockAdjustmentPayload {
+  productId: number;
+  warehouseId?: number;
+  batchNumber?: string;
+  adjustedQuantity: number;
+  reason?: string;
+  notes?: string;
+}
+
+export const inventoryApi = {
+  getDashboard: () => api.get<InventoryDashboardDTO>('/inventory/dashboard'),
+  getFinishedGoods: (productId?: number, warehouseId?: number) => 
+    api.get<FinishedGoodsItemDTO[]>('/inventory/finished-goods', { params: { productId, warehouseId } }),
+  getTransitStock: () => api.get<TransitStockItemDTO[]>('/inventory/transit-stock'),
+  getTruckInventories: () => api.get<TruckInventoryDTO[]>('/inventory/trucks'),
+  refillTruck: (payload: TruckRefillPayload) => api.post<TruckInventoryDTO>('/inventory/trucks/refill', payload),
+  auditTruckStock: (payload: TruckAuditPayload) => api.post<TruckInventoryDTO>('/inventory/trucks/audit', payload),
+  getStockLedger: (productId?: number, movementType?: string) => 
+    api.get<StockLedgerItemDTO[]>('/inventory/ledger', { params: { productId, movementType } }),
+  adjustStock: (payload: StockAdjustmentPayload) => api.post<FinishedGoodsItemDTO>('/inventory/adjust', payload),
+};
+
 export const salesDeliveryApi = {
   clearAll: () => api.delete<Record<string, any>>('/sales-delivery/clear-all'),
 };
 
 export default api;
+
 
 
 

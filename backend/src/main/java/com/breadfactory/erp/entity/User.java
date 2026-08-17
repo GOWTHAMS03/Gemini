@@ -101,6 +101,9 @@ public class User {
     @Column(name = "dl_expiry_date")
     private LocalDate dlExpiryDate;
 
+    @Column(name = "dl_document_url", length = 500)
+    private String dlDocumentUrl;
+
     @Column(name = "govt_id_type", length = 30)
     private String govtIdType; // AADHAAR, PAN, VOTER_ID
 

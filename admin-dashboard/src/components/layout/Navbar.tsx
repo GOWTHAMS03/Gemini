@@ -59,7 +59,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       case '/collections': return 'Driver Collections';
       case '/reports': return 'Reports & Analytics';
       case '/': 
-      default: return 'Overview';
+      default: return 'Dashboard';
     }
   };
 

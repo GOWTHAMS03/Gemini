@@ -1,5 +1,7 @@
 package com.breadfactory.erp.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -12,6 +14,7 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class RecipeItem {
 
     @Id
@@ -20,10 +23,12 @@ public class RecipeItem {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "recipe_id", nullable = false)
+    @JsonBackReference
     private Recipe recipe;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "raw_material_id", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private RawMaterial rawMaterial;
 
     @Column(name = "required_quantity", nullable = false, precision = 12, scale = 3)
@@ -32,3 +37,4 @@ public class RecipeItem {
     @Column(nullable = false, length = 20)
     private String unit;
 }
+

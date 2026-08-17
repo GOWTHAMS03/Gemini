@@ -4,6 +4,10 @@ import com.breadfactory.erp.dto.*;
 import com.breadfactory.erp.entity.*;
 import com.breadfactory.erp.enums.*;
 import com.breadfactory.erp.repository.*;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -29,6 +33,7 @@ public class ProductionService {
     private final WarehouseRepository warehouseRepository;
     private final UserRepository userRepository;
     private final InventoryTransactionRepository inventoryTransactionRepository;
+    private final ProductStockLedgerRepository stockLedgerRepository;
 
     @Transactional
     public ProductionRunDTO createProductionPlan(ProductionPlanRequest request) {
@@ -215,6 +220,22 @@ public class ProductionService {
         inventory.setQuantityAvailable(inventory.getQuantityAvailable() + actualProduced);
         inventoryRepository.save(inventory);
 
+        // 3b. Record in Product Stock Ledger (Movement: PRODUCTION)
+        try {
+            ProductStockLedger ledger = ProductStockLedger.builder()
+                    .product(product)
+                    .warehouse(factoryWh)
+                    .movementType(StockMovementType.PRODUCTION)
+                    .quantity(actualProduced)
+                    .batchNumber(run.getBatchNumber())
+                    .referenceNumber(run.getRunNumber())
+                    .notes("Production completed: " + actualProduced + " loaves deposited to " + factoryWh.getName() + " (Run: " + run.getRunNumber() + ")")
+                    .build();
+            stockLedgerRepository.save(ledger);
+        } catch (Exception e) {
+            log.warn("Could not log stock ledger entry for production completion: {}", e.getMessage());
+        }
+
         // 4. Update Production Run state
         run.setActualProducedQuantity(actualProduced);
         run.setRejectedQuantity(rejected);
@@ -237,6 +258,124 @@ public class ProductionService {
         ProductionRun updated = productionRunRepository.save(run);
         log.info("Production run {} completed. Deposited {} loaves to finished goods inventory.",
                 updated.getRunNumber(), actualProduced);
+        return mapToDTO(updated);
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class PackagingRequest {
+        private Integer boxCount;
+        private Integer unitsPerBox;
+        private Integer bundleCount;
+        private Integer unitsPerBundle;
+        private Integer coverCount;
+        private Integer unitsPerCover;
+        private Integer tinCount;
+        private Integer looseUnits;
+        private String packagingType;
+        private String packagingNotes;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class StageTransitionRequest {
+        private Integer bakingTempCelsius;
+        private Integer bakingTimeMinutes;
+        private BigDecimal actualDoughWeightKg;
+        private Integer slicedLoafCount;
+        private Integer damagedDuringSlicing;
+        private String packagingType;
+        private Integer packagedUnits;
+        private Integer boxedCount;
+        private Integer bundledCount;
+        private Integer coveredCount;
+        private Integer tinCount;
+        private Integer looseUnits;
+        private String packagingNotes;
+    }
+
+    @Transactional
+    public ProductionRunDTO startStage(Long runId, int stageNumber) {
+        ProductionRun run = productionRunRepository.findById(runId)
+                .orElseThrow(() -> new IllegalArgumentException("Production run not found with ID: " + runId));
+
+        ZonedDateTime now = ZonedDateTime.now();
+        if (run.getStartTime() == null) {
+            run.setStartTime(now);
+        }
+        run.setStatus(ProductionStatus.IN_PROGRESS);
+
+        if (stageNumber == 1) {
+            run.setStage1StartTime(now);
+            run.setCurrentStage(ProductionStage.STAGE_1_PREP_BAKE_COOL);
+        } else if (stageNumber == 2) {
+            run.setStage2StartTime(now);
+            run.setCurrentStage(ProductionStage.STAGE_2_SLICE_PACK_STACK);
+        } else if (stageNumber == 3) {
+            run.setStage3StartTime(now);
+            run.setCurrentStage(ProductionStage.STAGE_3_ROLL_PACKAGING);
+        }
+
+        ProductionRun updated = productionRunRepository.save(run);
+        log.info("Started Stage {} for Production Run {}", stageNumber, run.getRunNumber());
+        return mapToDTO(updated);
+    }
+
+    @Transactional
+    public ProductionRunDTO completeStage(Long runId, int stageNumber, StageTransitionRequest request) {
+        ProductionRun run = productionRunRepository.findById(runId)
+                .orElseThrow(() -> new IllegalArgumentException("Production run not found with ID: " + runId));
+
+        ZonedDateTime now = ZonedDateTime.now();
+
+        if (stageNumber == 1) {
+            run.setStage1EndTime(now);
+            run.setStage1Completed(true);
+            if (request != null) {
+                if (request.getBakingTempCelsius() != null) run.setBakingTempCelsius(request.getBakingTempCelsius());
+                if (request.getBakingTimeMinutes() != null) run.setBakingTimeMinutes(request.getBakingTimeMinutes());
+                if (request.getActualDoughWeightKg() != null) run.setActualDoughWeightKg(request.getActualDoughWeightKg());
+            }
+            run.setCurrentStage(ProductionStage.STAGE_2_SLICE_PACK_STACK);
+            if (run.getStage2StartTime() == null) run.setStage2StartTime(now);
+        } else if (stageNumber == 2) {
+            run.setStage2EndTime(now);
+            run.setStage2Completed(true);
+            run.setCurrentStage(ProductionStage.STAGE_3_ROLL_PACKAGING);
+            if (run.getStage3StartTime() == null) run.setStage3StartTime(now);
+        } else if (stageNumber == 3) {
+            run.setStage3EndTime(now);
+            run.setStage3Completed(true);
+        }
+
+        ProductionRun updated = productionRunRepository.save(run);
+        log.info("Completed Stage {} for Production Run {}", stageNumber, run.getRunNumber());
+        return mapToDTO(updated);
+    }
+
+    @Transactional
+    public ProductionRunDTO savePackaging(Long runId, PackagingRequest request) {
+        ProductionRun run = productionRunRepository.findById(runId)
+                .orElseThrow(() -> new IllegalArgumentException("Production run not found with ID: " + runId));
+
+        if (request.getBoxCount() != null) run.setBoxCount(request.getBoxCount());
+        if (request.getUnitsPerBox() != null) run.setUnitsPerBox(request.getUnitsPerBox());
+        if (request.getBundleCount() != null) run.setBundleCount(request.getBundleCount());
+        if (request.getUnitsPerBundle() != null) run.setUnitsPerBundle(request.getUnitsPerBundle());
+        if (request.getCoverCount() != null) run.setCoverCount(request.getCoverCount());
+        if (request.getUnitsPerCover() != null) run.setUnitsPerCover(request.getUnitsPerCover());
+        if (request.getTinCount() != null) run.setTinCount(request.getTinCount());
+        if (request.getLooseUnits() != null) run.setLooseUnits(request.getLooseUnits());
+        if (request.getPackagingType() != null) run.setPackagingType(request.getPackagingType());
+        if (request.getPackagingNotes() != null) run.setPackagingNotes(request.getPackagingNotes());
+
+        ProductionRun updated = productionRunRepository.save(run);
+        log.info("Saved packaging configuration for run {}: {} boxes, {} bundles, {} covers, {} tins, {} loose units",
+                run.getRunNumber(), run.getBoxCount(), run.getBundleCount(), run.getCoverCount(), run.getTinCount(), run.getLooseUnits());
         return mapToDTO(updated);
     }
 
@@ -411,12 +550,8 @@ public class ProductionService {
 
     public ProductionRunDTO mapToDTO(ProductionRun run) {
         if (run == null) return null;
-
-        List<ProductionRunDTO.BOMItemDTO> bomItems = new ArrayList<>();
         Recipe recipe = run.getRecipe();
-        if (recipe == null && run.getProduct() != null) {
-            recipe = recipeRepository.findByProductIdAndIsActiveTrue(run.getProduct().getId()).orElse(null);
-        }
+        List<ProductionRunDTO.BOMItemDTO> bomItems = new ArrayList<>();
 
         if (recipe != null && recipe.getItems() != null) {
             BigDecimal batchSize = recipe.getBatchOutputQuantity() != null ? recipe.getBatchOutputQuantity() : BigDecimal.valueOf(1000);
@@ -460,7 +595,7 @@ public class ProductionService {
                 .wasteQuantity(run.getWasteQuantity())
                 .yieldPercentage(run.getYieldPercentage() != null ? run.getYieldPercentage() : BigDecimal.valueOf(100.0))
                 .status(run.getStatus())
-                .currentStage(run.getCurrentStage() != null ? run.getCurrentStage() : ProductionStage.STAGE_DISPENSING)
+                .currentStage(run.getCurrentStage() != null ? run.getCurrentStage() : ProductionStage.STAGE_1_PREP_BAKE_COOL)
                 .shift(run.getShift() != null ? run.getShift() : ProductionShift.MORNING_SHIFT)
                 .machineUsed(run.getMachineUsed())
                 .operatorId(run.getOperator() != null ? run.getOperator().getId() : null)
@@ -478,6 +613,25 @@ public class ProductionService {
                 .notes(run.getNotes())
                 .startTime(run.getStartTime())
                 .endTime(run.getEndTime())
+                .stage1StartTime(run.getStage1StartTime())
+                .stage1EndTime(run.getStage1EndTime())
+                .stage1Completed(run.getStage1Completed())
+                .stage2StartTime(run.getStage2StartTime())
+                .stage2EndTime(run.getStage2EndTime())
+                .stage2Completed(run.getStage2Completed())
+                .stage3StartTime(run.getStage3StartTime())
+                .stage3EndTime(run.getStage3EndTime())
+                .stage3Completed(run.getStage3Completed())
+                .boxCount(run.getBoxCount())
+                .unitsPerBox(run.getUnitsPerBox())
+                .bundleCount(run.getBundleCount())
+                .unitsPerBundle(run.getUnitsPerBundle())
+                .coverCount(run.getCoverCount())
+                .unitsPerCover(run.getUnitsPerCover())
+                .tinCount(run.getTinCount())
+                .looseUnits(run.getLooseUnits())
+                .packagingType(run.getPackagingType())
+                .packagingNotes(run.getPackagingNotes())
                 .createdAt(run.getCreatedAt())
                 .updatedAt(run.getUpdatedAt())
                 .bomItems(bomItems)

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/apiService';
+import { CustomSelect } from '../components/common';
 import {
   BarChart3,
   TrendingUp,
@@ -164,17 +165,20 @@ export const AnalyticsPage: React.FC = () => {
             </p>
           </div>
 
-          <div className="flex gap-3">
-            <select
-              value={dateRange}
-              onChange={(e) => setDateRange(e.target.value)}
-              className="px-4 py-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-lg text-sm font-semibold text-[#1C1C1C] dark:text-white"
-            >
-              <option value="7days">Last 7 Days</option>
-              <option value="30days">Last 30 Days</option>
-              <option value="90days">Last 90 Days</option>
-              <option value="all">All Time</option>
-            </select>
+          <div className="flex items-center gap-3">
+            <div className="w-44 shrink-0">
+              <CustomSelect
+                value={dateRange}
+                onChange={val => setDateRange(val)}
+                options={[
+                  { value: '7days', label: 'Last 7 Days', badge: '7D' },
+                  { value: '30days', label: 'Last 30 Days', badge: '30D' },
+                  { value: '90days', label: 'Last 90 Days', badge: '90D' },
+                  { value: 'all', label: 'All Time', badge: 'ALL' },
+                ]}
+                placeholder="Select Range"
+              />
+            </div>
 
             <button
               onClick={() => fetchAnalyticsData()}

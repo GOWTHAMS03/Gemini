@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { CustomSelect } from '../components/common';
 
 interface ShopRoute {
   id: number;
@@ -242,29 +243,32 @@ export const RouteGroupPage = () => {
                 <form onSubmit={handleAddShop} className="grid grid-cols-2 gap-4 mb-6 p-4 bg-gray-100 dark:bg-gray-700 rounded">
                   <div className="col-span-1">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Shop</label>
-                    <select
+                    <CustomSelect
                       value={shopFormData.shopId}
-                      onChange={(e) => setShopFormData({ ...shopFormData, shopId: e.target.value })}
-                      required
-                      className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-600 dark:text-white p-2 rounded"
-                    >
-                      <option value="">Select Shop</option>
-                      {shops.map(shop => (
-                        <option key={shop.id} value={shop.id}>{shop.name} ({shop.shopCode})</option>
-                      ))}
-                    </select>
+                      onChange={val => setShopFormData({ ...shopFormData, shopId: val })}
+                      options={[
+                        { value: '', label: 'Select Shop' },
+                        ...shops.map(shop => ({
+                          value: shop.id,
+                          label: `${shop.name} (${shop.shopCode})`,
+                          badge: shop.shopCode
+                        }))
+                      ]}
+                      placeholder="Select Shop"
+                    />
                   </div>
                   <div className="col-span-1">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Day</label>
-                    <select
+                    <CustomSelect
                       value={shopFormData.visitDay}
-                      onChange={(e) => setShopFormData({ ...shopFormData, visitDay: parseInt(e.target.value) })}
-                      className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-600 dark:text-white p-2 rounded"
-                    >
-                      {dayNames.map((day, idx) => (
-                        <option key={idx} value={idx}>{day}</option>
-                      ))}
-                    </select>
+                      onChange={val => setShopFormData({ ...shopFormData, visitDay: parseInt(val) })}
+                      options={dayNames.map((day, idx) => ({
+                        value: idx,
+                        label: day,
+                        badge: `DAY ${idx + 1}`
+                      }))}
+                      placeholder="Select Day"
+                    />
                   </div>
                   <div className="col-span-1">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sequence</label>

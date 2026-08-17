@@ -16,6 +16,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { expensesApi, ApiExpense } from '../services/apiService';
+import { CustomSelect, CustomDatePicker } from '../components/common';
 
 export const ExpensesPage: React.FC = () => {
   const [expenses, setExpenses] = useState<ApiExpense[]>([]);
@@ -328,22 +329,23 @@ export const ExpensesPage: React.FC = () => {
             <div className="px-5 pb-5 space-y-3.5 text-xs">
               <div>
                 <label className="block text-[11px] font-bold mb-1">Expense Category *</label>
-                <select
+                <CustomSelect
                   value={category}
-                  onChange={e => setCategory(e.target.value)}
-                  className="w-full bg-[#F7F9FB] dark:bg-slate-800 text-xs font-semibold px-3 py-2 rounded-xl border border-[#E2E8F0] dark:border-slate-700 focus:outline-none"
-                >
-                  <option value="SALARIES">Salaries & Wages</option>
-                  <option value="TRIP_BETA">Trip Beta Allowance (Driver/Sales)</option>
-                  <option value="TRIP_EXPENSE">Trip Incidentals & En-Route Tolls</option>
-                  <option value="FUEL">Fuel & Transportation</option>
-                  <option value="VEHICLE_MAINTENANCE">Vehicle Maintenance</option>
-                  <option value="ELECTRICITY">Electricity & Power Utilities</option>
-                  <option value="RENT">Factory & Warehouse Rent</option>
-                  <option value="PACKAGING">Packaging Materials</option>
-                  <option value="OFFICE">Office & Stationery</option>
-                  <option value="MISCELLANEOUS">Miscellaneous Expenses</option>
-                </select>
+                  onChange={val => setCategory(val)}
+                  options={[
+                    { value: 'SALARIES', label: 'Salaries & Wages', badge: 'HR' },
+                    { value: 'TRIP_BETA', label: 'Trip Beta Allowance (Driver/Sales)', badge: 'FLEET' },
+                    { value: 'TRIP_EXPENSE', label: 'Trip Incidentals & En-Route Tolls', badge: 'FLEET' },
+                    { value: 'FUEL', label: 'Fuel & Transportation', badge: 'FLEET' },
+                    { value: 'VEHICLE_MAINTENANCE', label: 'Vehicle Maintenance', badge: 'FLEET' },
+                    { value: 'ELECTRICITY', label: 'Electricity & Power Utilities', badge: 'PLANT' },
+                    { value: 'RENT', label: 'Factory & Warehouse Rent', badge: 'PLANT' },
+                    { value: 'PACKAGING', label: 'Packaging Materials', badge: 'PLANT' },
+                    { value: 'OFFICE', label: 'Office & Stationery', badge: 'ADMIN' },
+                    { value: 'MISCELLANEOUS', label: 'Miscellaneous Expenses', badge: 'GEN' },
+                  ]}
+                  placeholder="Select Expense Category"
+                />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -358,16 +360,17 @@ export const ExpensesPage: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold mb-1">Payment Mode *</label>
-                  <select
+                  <CustomSelect
                     value={paymentMode}
-                    onChange={e => setPaymentMode(e.target.value)}
-                    className="w-full bg-[#F7F9FB] dark:bg-slate-800 text-xs font-semibold px-3 py-2 rounded-xl border border-[#E2E8F0] dark:border-slate-700 focus:outline-none"
-                  >
-                    <option value="CASH">Cash</option>
-                    <option value="BANK_TRANSFER">Bank Transfer / NEFT</option>
-                    <option value="UPI">UPI</option>
-                    <option value="CHEQUE">Cheque</option>
-                  </select>
+                    onChange={val => setPaymentMode(val)}
+                    options={[
+                      { value: 'CASH', label: 'Cash Treasury', badge: 'CASH' },
+                      { value: 'BANK_TRANSFER', label: 'Bank Transfer / NEFT', badge: 'NEFT' },
+                      { value: 'UPI', label: 'UPI Payout', badge: 'UPI' },
+                      { value: 'CHEQUE', label: 'Cheque', badge: 'CHEQUE' },
+                    ]}
+                    placeholder="Select Payment Mode"
+                  />
                 </div>
               </div>
 
@@ -384,11 +387,10 @@ export const ExpensesPage: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold mb-1">Expense Date *</label>
-                  <input
-                    type="date"
+                  <CustomDatePicker
                     value={expenseDate}
-                    onChange={e => setExpenseDate(e.target.value)}
-                    className="w-full bg-[#F7F9FB] dark:bg-slate-800 text-xs px-3 py-2 rounded-xl border border-[#E2E8F0] dark:border-slate-700 focus:outline-none"
+                    onChange={setExpenseDate}
+                    placeholder="Select Expense Date"
                   />
                 </div>
               </div>

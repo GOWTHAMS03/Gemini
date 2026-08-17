@@ -25,6 +25,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { salesExecutiveApi, ApiSalesExecutive } from '../services/apiService';
+import { CustomSelect } from '../components/common';
 
 export const SalesExecutivesPage: React.FC = () => {
   const [salesExecutives, setSalesExecutives] = useState<ApiSalesExecutive[]>([]);
@@ -317,41 +318,43 @@ export const SalesExecutivesPage: React.FC = () => {
           </div>
 
           {/* Status Filter */}
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-[#8C8C8C] dark:text-slate-400" />
-            <select
+          <div className="w-48 shrink-0">
+            <CustomSelect
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-[#F8F9FA] dark:bg-slate-900 border border-[#E9ECEF] dark:border-slate-700 text-[#1C1C1C] dark:text-slate-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-500 transition"
-            >
-              <option value="ALL">All Statuses</option>
-              <option value="ACTIVE">Active Staff Only</option>
-              <option value="INACTIVE">Inactive Staff Only</option>
-            </select>
+              onChange={val => setStatusFilter(val)}
+              options={[
+                { value: 'ALL', label: 'All Statuses' },
+                { value: 'ACTIVE', label: 'Active Staff Only', badge: 'ACTIVE' },
+                { value: 'INACTIVE', label: 'Inactive Staff Only', badge: 'OFF' },
+              ]}
+              placeholder="Status Filter"
+            />
           </div>
         </div>
 
         {/* View Toggle */}
-        <div className="flex items-center gap-1 bg-[#F8F9FA] dark:bg-slate-900 p-1 rounded-xl border border-[#E9ECEF] dark:border-slate-700 shrink-0">
-          <button
-            onClick={() => setViewMode('grid')}
-            className={`p-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-              viewMode === 'grid'
-                ? 'bg-white dark:bg-slate-800 text-[#1C1C1C] dark:text-white shadow-xs'
-                : 'text-[#8C8C8C] dark:text-slate-400 hover:text-[#1C1C1C]'
-            }`}
-          >
-            <LayoutGrid className="w-3.5 h-3.5" /> Grid
-          </button>
+        <div className="flex items-center p-1 bg-[#F4F5F7] dark:bg-slate-900 rounded-2xl border border-[#E9ECEF] dark:border-slate-800 shrink-0">
           <button
             onClick={() => setViewMode('table')}
-            className={`p-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+            className={`p-2 rounded-xl transition cursor-pointer ${
               viewMode === 'table'
                 ? 'bg-white dark:bg-slate-800 text-[#1C1C1C] dark:text-white shadow-xs'
-                : 'text-[#8C8C8C] dark:text-slate-400 hover:text-[#1C1C1C]'
+                : 'text-[#8C8C8C] dark:text-slate-400 hover:text-[#1C1C1C] dark:hover:text-white'
             }`}
+            title="Table View"
           >
-            <List className="w-3.5 h-3.5" /> Table
+            <List className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setViewMode('grid')}
+            className={`p-2 rounded-xl transition cursor-pointer ${
+              viewMode === 'grid'
+                ? 'bg-white dark:bg-slate-800 text-[#1C1C1C] dark:text-white shadow-xs'
+                : 'text-[#8C8C8C] dark:text-slate-400 hover:text-[#1C1C1C] dark:hover:text-white'
+            }`}
+            title="Grid Cards View"
+          >
+            <LayoutGrid className="w-4 h-4" />
           </button>
         </div>
       </div>

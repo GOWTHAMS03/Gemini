@@ -120,6 +120,37 @@ public class ProductionController {
     }
 
     /**
+     * Start specific manufacturing stage (1, 2, or 3) with start timestamp
+     */
+    @PostMapping("/{id}/start-stage/{stageNumber}")
+    public ResponseEntity<ProductionRunDTO> startStage(
+            @PathVariable Long id,
+            @PathVariable int stageNumber) {
+        return ResponseEntity.ok(productionService.startStage(id, stageNumber));
+    }
+
+    /**
+     * Complete specific manufacturing stage (1, 2, or 3) with stop timestamp & parameters
+     */
+    @PostMapping("/{id}/complete-stage/{stageNumber}")
+    public ResponseEntity<ProductionRunDTO> completeStage(
+            @PathVariable Long id,
+            @PathVariable int stageNumber,
+            @RequestBody(required = false) ProductionService.StageTransitionRequest request) {
+        return ResponseEntity.ok(productionService.completeStage(id, stageNumber, request));
+    }
+
+    /**
+     * Save Stage 3 bulk packaging configuration (Boxes, Bundles, Crates)
+     */
+    @PostMapping("/{id}/packaging")
+    public ResponseEntity<ProductionRunDTO> savePackaging(
+            @PathVariable Long id,
+            @RequestBody ProductionService.PackagingRequest request) {
+        return ResponseEntity.ok(productionService.savePackaging(id, request));
+    }
+
+    /**
      * Cancel a production batch
      */
     @PostMapping("/cancel/{id}")

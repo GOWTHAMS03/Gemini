@@ -41,16 +41,26 @@ import {
   TrendingUp,
   Wallet,
   CheckCircle,
-  Clock3
+  Clock3,
+  Upload,
+  Image as ImageIcon,
+  ExternalLink,
+  Folder,
+  Eye,
+  Download,
+  FileBadge
 } from 'lucide-react';
 import { 
   employeeApi, 
   salaryApi, 
+  mediaApi,
+  CloudinaryDlDocument,
   ApiEmployee, 
   ApiEmployeeSalary, 
   ApiEmployeeSalaryHistory, 
   ApiSalaryExpenseDashboard 
 } from '../services/apiService';
+import { CustomSelect, CustomDatePicker } from '../components/common';
 
 type MainViewTab = 'STAFF_DIRECTORY' | 'SALARY_MANAGEMENT';
 type RoleTab = 'ALL' | 'ROLE_DRIVER' | 'ROLE_SALES_EXECUTIVE' | 'ROLE_EMPLOYEE';
@@ -140,9 +150,51 @@ export const EmployeesPage: React.FC = () => {
   const [primaryRoute, setPrimaryRoute] = useState('');
   const [dlNumber, setDlNumber] = useState('');
   const [dlExpiryDate, setDlExpiryDate] = useState('');
+  const [dlDocumentUrl, setDlDocumentUrl] = useState('');
   const [govtIdType, setGovtIdType] = useState('AADHAAR');
   const [govtIdNumber, setGovtIdNumber] = useState('');
   const [policeVerificationStatus, setPoliceVerificationStatus] = useState('PENDING');
+
+  // Cloudinary DL Management
+  const [isUploadingDl, setIsUploadingDl] = useState(false);
+  const [showCloudinaryDlPicker, setShowCloudinaryDlPicker] = useState(false);
+  const [cloudinaryDlFiles, setCloudinaryDlFiles] = useState<CloudinaryDlDocument[]>([]);
+  const [isLoadingCloudinaryDl, setIsLoadingCloudinaryDl] = useState(false);
+  const [previewDlUrl, setPreviewDlUrl] = useState<string | null>(null);
+  const [cloudinarySearch, setCloudinarySearch] = useState('');
+
+  const handleDlFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUploadingDl(true);
+      const res = await mediaApi.uploadDriverDl(file, fullName || username || 'driver');
+      if (res.data?.secure_url) {
+        setDlDocumentUrl(res.data.secure_url);
+        showToast('Driving License uploaded to Cloudinary folder (bread_erp/drivers/dl)!');
+      }
+    } catch (err: any) {
+      console.error('Error uploading DL to Cloudinary:', err);
+      showToast('Cloudinary DL upload failed: ' + (err.response?.data?.error || err.message));
+    } finally {
+      setIsUploadingDl(false);
+    }
+  };
+
+  const handleFetchCloudinaryDlFiles = async () => {
+    try {
+      setIsLoadingCloudinaryDl(true);
+      setShowCloudinaryDlPicker(true);
+      const res = await mediaApi.getDriverDlDocuments();
+      setCloudinaryDlFiles(res.data?.documents || []);
+    } catch (err: any) {
+      console.error('Error loading Cloudinary DL files:', err);
+      showToast('Failed to retrieve Cloudinary DL documents');
+    } finally {
+      setIsLoadingCloudinaryDl(false);
+    }
+  };
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
@@ -319,6 +371,7 @@ export const EmployeesPage: React.FC = () => {
     setPrimaryRoute('');
     setDlNumber('');
     setDlExpiryDate('');
+    setDlDocumentUrl('');
     setGovtIdType('AADHAAR');
     setGovtIdNumber('');
     setPoliceVerificationStatus('PENDING');
@@ -326,8 +379,17 @@ export const EmployeesPage: React.FC = () => {
     setDriverStep(1);
   };
 
-  const handleOpenCreate = () => {
+  const handleOpenCreate = (defaultRole?: string) => {
     resetForm();
+    if (defaultRole) {
+      setRoleGroup(defaultRole);
+    } else if (activeTab === 'ROLE_DRIVER') {
+      setRoleGroup('DRIVER');
+    } else if (activeTab === 'ROLE_SALES_EXECUTIVE') {
+      setRoleGroup('SALES_EXECUTIVE');
+    } else {
+      setRoleGroup('EMPLOYEE');
+    }
     setIsModalOpen(true);
   };
 
@@ -352,6 +414,7 @@ export const EmployeesPage: React.FC = () => {
     setPrimaryRoute(emp.primaryRoute || '');
     setDlNumber(emp.dlNumber || '');
     setDlExpiryDate(emp.dlExpiryDate || '');
+    setDlDocumentUrl(emp.dlDocumentUrl || '');
     setGovtIdType(emp.govtIdType || 'AADHAAR');
     setGovtIdNumber(emp.govtIdNumber || '');
     setPoliceVerificationStatus(emp.policeVerificationStatus || 'PENDING');
@@ -380,6 +443,7 @@ export const EmployeesPage: React.FC = () => {
       primaryRoute: roleGroup === 'DRIVER' ? primaryRoute : undefined,
       dlNumber: roleGroup === 'DRIVER' ? dlNumber : undefined,
       dlExpiryDate: roleGroup === 'DRIVER' ? dlExpiryDate : undefined,
+      dlDocumentUrl: roleGroup === 'DRIVER' ? dlDocumentUrl : undefined,
       govtIdType: roleGroup === 'DRIVER' ? govtIdType : undefined,
       govtIdNumber: roleGroup === 'DRIVER' ? govtIdNumber : undefined,
       policeVerificationStatus: roleGroup === 'DRIVER' ? policeVerificationStatus : undefined,
@@ -853,11 +917,25 @@ export const EmployeesPage: React.FC = () => {
               </div>
 
               <button
-                onClick={handleOpenCreate}
-                className="flex items-center gap-2 px-4 py-2 bg-[#1C1C1C] dark:bg-blue-600 hover:bg-black dark:hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-xs transition active:scale-95 whitespace-nowrap"
+                onClick={() => handleOpenCreate()}
+                className="flex items-center gap-2 px-4 py-2 bg-[#1C1C1C] dark:bg-blue-600 hover:bg-black dark:hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-xs transition active:scale-95 whitespace-nowrap cursor-pointer"
               >
-                <UserPlus className="w-4 h-4" />
-                Add Employee
+                {activeTab === 'ROLE_DRIVER' ? (
+                  <>
+                    <Truck className="w-4 h-4" />
+                    Onboard Driver
+                  </>
+                ) : activeTab === 'ROLE_SALES_EXECUTIVE' ? (
+                  <>
+                    <UserCheck className="w-4 h-4" />
+                    Onboard Sales Exec
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="w-4 h-4" />
+                    Add Staff Member
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -967,6 +1045,27 @@ export const EmployeesPage: React.FC = () => {
                             <span>{emp.primaryRoute}</span>
                           </div>
                         )}
+                        {isDriver && emp.dlNumber && (
+                          <div className="flex items-center justify-between gap-2 col-span-2 bg-blue-50/60 dark:bg-blue-950/30 p-2 rounded-xl border border-blue-100 dark:border-blue-800/50">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <FileBadge className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+                              <span className="text-[11px] font-mono font-bold text-blue-800 dark:text-blue-200 truncate">
+                                DL: {emp.dlNumber}
+                              </span>
+                            </div>
+                            {emp.dlDocumentUrl ? (
+                              <button
+                                onClick={() => setPreviewDlUrl(emp.dlDocumentUrl!)}
+                                className="px-2 py-0.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-[10px] font-bold flex items-center gap-1 shrink-0 cursor-pointer shadow-2xs"
+                              >
+                                <Eye className="w-3 h-3" />
+                                View DL
+                              </button>
+                            ) : (
+                              <span className="text-[10px] text-slate-400 font-medium">No Doc</span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -1042,8 +1141,24 @@ export const EmployeesPage: React.FC = () => {
                         <div className="text-slate-400 text-[11px]">{emp.email || ''}</div>
                       </td>
                       <td className="py-3 px-4">
-                        <div>{emp.assignedVehicle || '—'}</div>
+                        <div className="font-semibold">{emp.assignedVehicle || '—'}</div>
                         <div className="text-slate-400 text-[11px]">{emp.primaryRoute || ''}</div>
+                        {emp.dlNumber && (
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <span className="text-[10px] font-mono text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-1.5 py-0.5 rounded font-bold">
+                              DL: {emp.dlNumber}
+                            </span>
+                            {emp.dlDocumentUrl && (
+                              <button
+                                onClick={() => setPreviewDlUrl(emp.dlDocumentUrl!)}
+                                className="p-0.5 text-blue-600 hover:text-blue-800 transition cursor-pointer"
+                                title="View Cloudinary DL"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </td>
                       <td className="py-3 px-4 text-center">
                         <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
@@ -1104,19 +1219,16 @@ export const EmployeesPage: React.FC = () => {
             <form onSubmit={handleSaveSalary} className="p-6 space-y-4">
               <div>
                 <label className={labelClass}>Employee</label>
-                <select
+                <CustomSelect
                   value={selectedEmployeeForSalary || ''}
-                  onChange={e => setSelectedEmployeeForSalary(Number(e.target.value))}
-                  className={selectClass}
-                  required
-                >
-                  <option value="">-- Select Employee --</option>
-                  {employees.map(emp => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.fullName} ({getRoleBadge(emp.roles).label})
-                    </option>
-                  ))}
-                </select>
+                  onChange={val => setSelectedEmployeeForSalary(val ? Number(val) : null)}
+                  options={employees.map(emp => ({
+                    value: emp.id,
+                    label: `${emp.fullName} (${getRoleBadge(emp.roles).label})`,
+                    badge: getRoleBadge(emp.roles).label,
+                  }))}
+                  placeholder="-- Select Employee --"
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -1243,28 +1355,25 @@ export const EmployeesPage: React.FC = () => {
 
               <div>
                 <label className={labelClass}>Payment Mode</label>
-                <select
+                <CustomSelect
                   value={paymentMode}
-                  onChange={e => setPaymentMode(e.target.value as any)}
-                  className={selectClass}
-                  required
-                >
-                  <option value="BANK_TRANSFER">Bank Transfer (NEFT / RTGS / IMPS)</option>
-                  <option value="UPI">UPI Direct Payout</option>
-                  <option value="CASH">Cash Counter Treasury</option>
-                  <option value="CHEQUE">Company Cheque</option>
-                </select>
+                  onChange={val => setPaymentMode(val as any)}
+                  options={[
+                    { value: 'BANK_TRANSFER', label: 'Bank Transfer (NEFT / RTGS / IMPS)', badge: 'NEFT' },
+                    { value: 'UPI', label: 'UPI Direct Payout', badge: 'UPI' },
+                    { value: 'CASH', label: 'Cash Counter Treasury', badge: 'CASH' },
+                    { value: 'CHEQUE', label: 'Company Cheque', badge: 'CHEQUE' },
+                  ]}
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={labelClass}>Payment Date</label>
-                  <input
-                    type="date"
+                  <CustomDatePicker
                     value={paymentDate}
-                    onChange={e => setPaymentDate(e.target.value)}
-                    className={inputClass}
-                    required
+                    onChange={setPaymentDate}
+                    placeholder="Select Payment Date"
                   />
                 </div>
                 <div>
@@ -1533,16 +1642,16 @@ export const EmployeesPage: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={labelClass}>Role Group *</label>
-                  <select
+                  <CustomSelect
                     value={roleGroup}
-                    onChange={e => setRoleGroup(e.target.value)}
-                    className={selectClass}
-                    required
-                  >
-                    <option value="DRIVER">Driver (Fleet & Trips)</option>
-                    <option value="SALES_EXECUTIVE">Sales Executive (Shop Visits & Orders)</option>
-                    <option value="EMPLOYEE">General Employee (Plant / Store)</option>
-                  </select>
+                    onChange={val => setRoleGroup(val)}
+                    options={[
+                      { value: 'DRIVER', label: 'Driver (Fleet & Trips)', badge: 'FLEET' },
+                      { value: 'SALES_EXECUTIVE', label: 'Sales Executive (Shop Visits & Orders)', badge: 'SALES' },
+                      { value: 'EMPLOYEE', label: 'General Employee (Plant / Store)', badge: 'STAFF' },
+                    ]}
+                    placeholder="Select Role Group"
+                  />
                 </div>
                 {roleGroup === 'SALES_EXECUTIVE' && (
                   <div>
@@ -1608,11 +1717,10 @@ export const EmployeesPage: React.FC = () => {
               <div className="grid grid-cols-2 gap-3 mt-3">
                 <div>
                   <label className={labelClass}>Joining Date</label>
-                  <input
-                    type="date"
+                  <CustomDatePicker
                     value={joiningDate}
-                    onChange={e => setJoiningDate(e.target.value)}
-                    className={inputClass}
+                    onChange={setJoiningDate}
+                    placeholder="Select Joining Date"
                   />
                 </div>
                 <div>
@@ -1629,10 +1737,16 @@ export const EmployeesPage: React.FC = () => {
 
               {/* Driver Specific Fields */}
               {roleGroup === 'DRIVER' && (
-                <div className="p-4 bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-2xl space-y-3">
-                  <div className="text-xs font-bold text-blue-800 dark:text-blue-300 uppercase flex items-center gap-1.5">
-                    <Truck className="w-4 h-4" /> Driver & License Information
+                <div className="p-4 bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-2xl space-y-3.5">
+                  <div className="text-xs font-bold text-blue-800 dark:text-blue-300 uppercase flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Truck className="w-4 h-4" /> Driver & License Verification
+                    </div>
+                    <span className="text-[10px] font-mono text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/60 px-2 py-0.5 rounded-full font-bold">
+                      Cloudinary: bread_erp/drivers/dl
+                    </span>
                   </div>
+
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className={labelClass}>Assigned Vehicle</label>
@@ -1655,9 +1769,10 @@ export const EmployeesPage: React.FC = () => {
                       />
                     </div>
                   </div>
+
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className={labelClass}>Driving License No.</label>
+                      <label className={labelClass}>Driving License No. *</label>
                       <input
                         type="text"
                         value={dlNumber}
@@ -1667,14 +1782,127 @@ export const EmployeesPage: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label className={labelClass}>DL Expiry Date</label>
-                      <input
-                        type="date"
+                      <label className={labelClass}>DL Expiry Date *</label>
+                      <CustomDatePicker
                         value={dlExpiryDate}
-                        onChange={e => setDlExpiryDate(e.target.value)}
-                        className={inputClass}
+                        onChange={setDlExpiryDate}
+                        placeholder="Select DL Expiry Date"
                       />
                     </div>
+                  </div>
+
+                  {/* Cloudinary Driving License Document Upload & Retrieve */}
+                  <div className="pt-2.5 border-t border-blue-200/70 dark:border-blue-800/70 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                        <FileBadge className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                        Driving License Document (Cloudinary /dl)
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handleFetchCloudinaryDlFiles}
+                        className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        <Folder className="w-3.5 h-3.5" />
+                        Retrieve from Cloudinary
+                      </button>
+                    </div>
+
+                    {dlDocumentUrl ? (
+                      <div className="flex items-center justify-between p-3 bg-white dark:bg-slate-900 rounded-xl border border-blue-200 dark:border-blue-800 shadow-2xs">
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          <div className="w-10 h-10 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
+                            {dlDocumentUrl.toLowerCase().includes('.pdf') ? (
+                              <FileText className="w-5 h-5 text-rose-500" />
+                            ) : (
+                              <img 
+                                src={dlDocumentUrl} 
+                                alt="DL preview" 
+                                className="w-full h-full object-cover rounded-lg"
+                                onError={(e) => {
+                                  (e.target as HTMLElement).style.display = 'none';
+                                }}
+                              />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                                DL_{dlNumber || fullName || 'Document'}
+                              </span>
+                              <span className="text-[9px] font-bold uppercase px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                                Cloudinary Synced
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate font-mono mt-0.5">
+                              {dlDocumentUrl}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 shrink-0 ml-2">
+                          <button
+                            type="button"
+                            onClick={() => setPreviewDlUrl(dlDocumentUrl)}
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-lg transition cursor-pointer"
+                            title="Preview Document"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <a
+                            href={dlDocumentUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-white rounded-lg transition"
+                            title="Open in new tab"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => setDlDocumentUrl('')}
+                            className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition cursor-pointer"
+                            title="Remove Document"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        {/* Upload Button */}
+                        <label className={`flex items-center justify-center gap-2 p-3.5 bg-white dark:bg-slate-900 hover:bg-blue-50/50 dark:hover:bg-slate-800/80 border-2 border-dashed border-blue-300 dark:border-blue-700/80 rounded-xl cursor-pointer transition ${isUploadingDl ? 'opacity-50 pointer-events-none' : ''}`}>
+                          <input
+                            type="file"
+                            accept="image/*,application/pdf"
+                            className="hidden"
+                            onChange={handleDlFileUpload}
+                            disabled={isUploadingDl}
+                          />
+                          {isUploadingDl ? (
+                            <div className="flex items-center gap-2 text-xs font-bold text-blue-600 dark:text-blue-400">
+                              <RefreshCw className="w-4 h-4 animate-spin" />
+                              Uploading to Cloudinary...
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 text-xs font-bold text-blue-600 dark:text-blue-400">
+                              <Upload className="w-4 h-4" />
+                              <span>Upload DL to Cloudinary</span>
+                            </div>
+                          )}
+                        </label>
+
+                        {/* Retrieve from Cloudinary Button */}
+                        <button
+                          type="button"
+                          onClick={handleFetchCloudinaryDlFiles}
+                          className="flex items-center justify-center gap-2 p-3.5 bg-white dark:bg-slate-900 hover:bg-purple-50/50 dark:hover:bg-slate-800/80 border border-purple-300 dark:border-purple-800/80 rounded-xl text-xs font-bold text-purple-600 dark:text-purple-400 cursor-pointer transition shadow-2xs"
+                        >
+                          <Folder className="w-4 h-4" />
+                          <span>Retrieve from DL Folder</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -1702,17 +1930,19 @@ export const EmployeesPage: React.FC = () => {
                     />
                   </button>
                 </div>
-              )}              <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#F0F2F5] dark:border-slate-700">
+              )}
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#F0F2F5] dark:border-slate-700">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-xs font-bold text-[#8C8C8C] hover:text-[#1C1C1C] dark:text-slate-400 dark:hover:text-white transition"
+                  className="px-4 py-2 text-xs font-bold text-[#8C8C8C] hover:text-[#1C1C1C] dark:text-slate-400 dark:hover:text-white transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 bg-[#1C1C1C] dark:bg-blue-600 hover:bg-black dark:hover:bg-blue-500 text-white text-xs font-bold rounded-xl shadow-xs transition active:scale-95"
+                  className="px-6 py-2.5 bg-[#1C1C1C] dark:bg-blue-600 hover:bg-black dark:hover:bg-blue-500 text-white text-xs font-bold rounded-xl shadow-xs transition active:scale-95 cursor-pointer"
                 >
                   {editingEmployee ? 'Update Staff Member' : 'Register Staff'}
                 </button>
@@ -1721,6 +1951,198 @@ export const EmployeesPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* ═══════════════════════════════════════════════════════════════════════ */}
+      {/* CLOUDINARY DL FOLDER RETRIEVAL & BROWSER MODAL                          */}
+      {/* ═══════════════════════════════════════════════════════════════════════ */}
+      {showCloudinaryDlPicker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-blue-900 to-indigo-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center">
+                  <Folder className="w-4 h-4 text-blue-200" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm">Cloudinary DL Document Repository</h3>
+                  <p className="text-[11px] text-blue-200 font-mono">Folder: bread_erp/drivers/dl</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowCloudinaryDlPicker(false)}
+                className="p-1 text-white/80 hover:text-white rounded-lg transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Search & Actions Bar */}
+            <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex items-center justify-between gap-3">
+              <div className="relative flex-1">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search DL files by name or date..."
+                  value={cloudinarySearch}
+                  onChange={e => setCloudinarySearch(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <button
+                onClick={handleFetchCloudinaryDlFiles}
+                disabled={isLoadingCloudinaryDl}
+                className="px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-2xs transition"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isLoadingCloudinaryDl ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+            </div>
+
+            {/* Files Grid */}
+            <div className="p-5 overflow-y-auto flex-1 space-y-3">
+              {isLoadingCloudinaryDl ? (
+                <div className="py-16 text-center space-y-3">
+                  <RefreshCw className="w-8 h-8 text-blue-600 animate-spin mx-auto" />
+                  <p className="text-xs text-slate-500 font-medium">Retrieving DL documents from Cloudinary...</p>
+                </div>
+              ) : cloudinaryDlFiles.length === 0 ? (
+                <div className="py-16 text-center space-y-3 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
+                  <Folder className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto" />
+                  <div>
+                    <p className="text-xs font-bold text-slate-700 dark:text-slate-300">No DL files found in folder</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">Upload a new DL document above to populate bread_erp/drivers/dl</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {cloudinaryDlFiles
+                    .filter(f => !cloudinarySearch || f.name.toLowerCase().includes(cloudinarySearch.toLowerCase()))
+                    .map((file, idx) => (
+                      <div
+                        key={idx}
+                        className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700/80 hover:border-blue-500 dark:hover:border-blue-500 transition space-y-2 flex flex-col justify-between group shadow-2xs"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 overflow-hidden flex items-center justify-center shrink-0">
+                            {file.format === 'pdf' ? (
+                              <FileText className="w-6 h-6 text-rose-500" />
+                            ) : (
+                              <img
+                                src={file.secure_url}
+                                alt={file.name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  (e.target as HTMLElement).style.display = 'none';
+                                }}
+                              />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-extrabold text-slate-900 dark:text-white truncate">
+                              {file.name}
+                            </p>
+                            <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                              {file.format ? file.format.toUpperCase() : 'DOC'} • {Math.round(file.bytes / 1024)} KB
+                            </p>
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                              {file.created_at ? new Date(file.created_at).toLocaleDateString() : 'Cloudinary Stored'}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setPreviewDlUrl(file.secure_url)}
+                            className="text-[11px] font-bold text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 flex items-center gap-1 cursor-pointer"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            Preview
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDlDocumentUrl(file.secure_url);
+                              setShowCloudinaryDlPicker(false);
+                              showToast(`Attached ${file.name} to driver onboarding!`);
+                            }}
+                            className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-xs"
+                          >
+                            <CheckCircle className="w-3.5 h-3.5" />
+                            Select
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 flex items-center justify-between text-xs text-slate-500">
+              <span>{cloudinaryDlFiles.length} driving license documents in Cloudinary folder</span>
+              <button
+                type="button"
+                onClick={() => setShowCloudinaryDlPicker(false)}
+                className="px-4 py-1.5 bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl font-bold hover:bg-slate-300 transition cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════════════════ */}
+      {/* DL DOCUMENT FULLSCREEN PREVIEW MODAL                                   */}
+      {/* ═══════════════════════════════════════════════════════════════════════ */}
+      {previewDlUrl && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-3xl rounded-3xl shadow-2xl border border-slate-700 overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="px-6 py-3.5 bg-slate-950 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileBadge className="w-4 h-4 text-blue-400" />
+                <span className="font-bold text-xs">Cloudinary Driving License Document Preview</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={previewDlUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  download
+                  className="px-3 py-1 bg-white/15 hover:bg-white/25 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Download
+                </a>
+                <button
+                  onClick={() => setPreviewDlUrl(null)}
+                  className="p-1 text-white/80 hover:text-white rounded-lg transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 overflow-y-auto flex-1 flex items-center justify-center bg-slate-100 dark:bg-slate-950 min-h-[400px]">
+              {previewDlUrl.toLowerCase().includes('.pdf') ? (
+                <iframe
+                  src={previewDlUrl}
+                  title="Driving License PDF"
+                  className="w-full h-[550px] rounded-xl border border-slate-300 dark:border-slate-800"
+                />
+              ) : (
+                <img
+                  src={previewDlUrl}
+                  alt="Driving License Document"
+                  className="max-h-[550px] max-w-full rounded-2xl shadow-xl object-contain border border-slate-200 dark:border-slate-800"
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+

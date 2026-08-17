@@ -31,6 +31,7 @@ import {
   ApiInvoice,
   ApiProduct
 } from '../services/apiService';
+import { CustomSelect } from '../components/common';
 
 export const ReturnsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'returns' | 'creditNotes' | 'expiredLoss' | 'newReturn'>('returns');
@@ -650,35 +651,33 @@ export const ReturnsPage: React.FC = () => {
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                     1. Select Retail Shop
                   </label>
-                  <select
+                  <CustomSelect
                     value={selectedShopId}
-                    onChange={e => handleShopSelectForReturn(Number(e.target.value))}
-                    className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white shadow-2xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  >
-                    <option value="">-- Choose Shop --</option>
-                    {shops.map(s => (
-                      <option key={s.id} value={s.id}>{s.name} ({s.shopCode})</option>
-                    ))}
-                  </select>
+                    onChange={val => handleShopSelectForReturn(Number(val))}
+                    options={shops.map(s => ({
+                      value: s.id,
+                      label: `${s.name} (${s.shopCode})`,
+                      badge: s.shopCode
+                    }))}
+                    placeholder="-- Choose Shop --"
+                  />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                     2. Select Original Sales Invoice
                   </label>
-                  <select
+                  <CustomSelect
                     value={selectedOriginalInvoiceId}
-                    onChange={e => handleInvoiceSelect(Number(e.target.value))}
+                    onChange={val => handleInvoiceSelect(Number(val))}
                     disabled={!selectedShopId}
-                    className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white shadow-2xs focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
-                  >
-                    <option value="">-- Choose Past Invoice --</option>
-                    {eligibleInvoices.map(inv => (
-                      <option key={inv.id} value={inv.id}>
-                        {inv.invoiceNumber} (Date: {new Date(inv.invoiceDate || Date.now()).toLocaleDateString()}) - Total: ₹{inv.totalAmount}
-                      </option>
-                    ))}
-                  </select>
+                    options={eligibleInvoices.map(inv => ({
+                      value: inv.id,
+                      label: `${inv.invoiceNumber} (Date: ${new Date(inv.invoiceDate || Date.now()).toLocaleDateString()}) - Total: ₹${inv.totalAmount}`,
+                      badge: `₹${inv.totalAmount}`
+                    }))}
+                    placeholder="-- Choose Past Invoice --"
+                  />
                 </div>
 
                 {selectedInvoiceObj && (
