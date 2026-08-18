@@ -12,5 +12,6 @@ import java.util.Optional;
 public interface CashBankTransactionRepository extends JpaRepository<CashBankTransaction, Long> {
     List<CashBankTransaction> findByAccountTypeOrderByCreatedAtDesc(CashBankType accountType);
     Optional<CashBankTransaction> findTopByAccountTypeOrderByCreatedAtDescIdDesc(CashBankType accountType);
+    Optional<CashBankTransaction> findTopByOrderByCreatedAtDescIdDesc();
     List<CashBankTransaction> findAllByOrderByCreatedAtDesc();
 }

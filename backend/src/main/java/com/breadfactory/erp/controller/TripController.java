@@ -92,11 +92,21 @@ public class TripController {
     }
 
     /**
-     * Complete a trip
+     * Start a trip (change from DISPATCHED/DRAFT to IN_PROGRESS with start timestamp)
+     */
+    @PostMapping("/{id}/start")
+    public ResponseEntity<TripDTO> startTrip(@PathVariable Long id, Authentication authentication) {
+        String username = authentication != null ? authentication.getName() : "sales_person";
+        TripDTO trip = tripDispatchService.startTrip(id, username);
+        return ResponseEntity.ok(trip);
+    }
+
+    /**
+     * Complete / End a trip (change from IN_PROGRESS to COMPLETED with return/completion timestamp and reconciliation)
      */
     @PostMapping("/{id}/complete")
     public ResponseEntity<TripDTO> completeTrip(@PathVariable Long id, Authentication authentication) {
-        String username = authentication != null ? authentication.getName() : "admin";
+        String username = authentication != null ? authentication.getName() : "sales_person";
         TripDTO trip = tripDispatchService.completeTrip(id, username);
         return ResponseEntity.ok(trip);
     }

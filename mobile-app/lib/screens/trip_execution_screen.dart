@@ -28,9 +28,8 @@ class _TripExecutionScreenState extends State<TripExecutionScreen> {
   Future<void> _startTrip() async {
     setState(() => isUpdating = true);
     try {
-      final response = await ApiService().updateTripStatus(
+      final response = await ApiService().startTrip(
         currentTrip['id'],
-        'IN_PROGRESS',
       );
       setState(() {
         currentTrip = response;
@@ -38,7 +37,7 @@ class _TripExecutionScreenState extends State<TripExecutionScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✓ Trip started successfully'),
+            content: Text('🚀 Trip started successfully with live timestamp'),
             backgroundColor: Colors.green,
           ),
         );
@@ -61,8 +60,8 @@ class _TripExecutionScreenState extends State<TripExecutionScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('End Trip?'),
-        content: const Text('Are you sure you want to end this trip? Make sure all shops have been visited.'),
+        title: const Text('Verify & End Trip?'),
+        content: const Text('Are you sure you want to end this trip? All shop deliveries, collections, and remaining returns will be reconciled.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -70,7 +69,8 @@ class _TripExecutionScreenState extends State<TripExecutionScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('End Trip'),
+            style: TextButton.styleFrom(foregroundColor: Colors.purple),
+            child: const Text('Verify & End Trip'),
           ),
         ],
       ),
@@ -80,9 +80,8 @@ class _TripExecutionScreenState extends State<TripExecutionScreen> {
 
     setState(() => isUpdating = true);
     try {
-      final response = await ApiService().updateTripStatus(
+      final response = await ApiService().completeTrip(
         currentTrip['id'],
-        'COMPLETED',
       );
       setState(() {
         currentTrip = response;
@@ -90,8 +89,8 @@ class _TripExecutionScreenState extends State<TripExecutionScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✓ Trip completed successfully'),
-            backgroundColor: Colors.green,
+            content: Text('🏁 Trip completed and reconciled successfully!'),
+            backgroundColor: Colors.purple,
           ),
         );
         Future.delayed(const Duration(seconds: 1), () {

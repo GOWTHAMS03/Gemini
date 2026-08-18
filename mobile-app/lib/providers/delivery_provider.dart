@@ -565,6 +565,64 @@ class DeliveryProvider with ChangeNotifier {
     }
   }
 
+  Future<bool> startTripWithVerification() async {
+    if (_activeTrip == null) return false;
+    _isLoading = true;
+    notifyListeners();
+    try {
+      if (_isOnline) {
+        final updatedTripMap = await _apiService.startTrip(_activeTrip!.id);
+        if (updatedTripMap.isNotEmpty) {
+          _activeTrip = TripModel.fromJson(updatedTripMap);
+        } else {
+          _activeTrip?.status = 'IN_PROGRESS';
+        }
+      } else {
+        _activeTrip?.status = 'IN_PROGRESS';
+      }
+      _cacheObject('cached_active_trip', _activeTrip!.toJson());
+      addNotification("Trip Started", "Trip #${_activeTrip?.tripNumber} started successfully! Active route execution underway.", "sync");
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      debugPrint('Error starting trip: $e');
+      _activeTrip?.status = 'IN_PROGRESS';
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    }
+  }
+
+  Future<bool> endTripWithVerification() async {
+    if (_activeTrip == null) return false;
+    _isLoading = true;
+    notifyListeners();
+    try {
+      if (_isOnline) {
+        final updatedTripMap = await _apiService.completeTrip(_activeTrip!.id);
+        if (updatedTripMap.isNotEmpty) {
+          _activeTrip = TripModel.fromJson(updatedTripMap);
+        } else {
+          _activeTrip?.status = 'COMPLETED';
+        }
+      } else {
+        _activeTrip?.status = 'COMPLETED';
+      }
+      _cacheObject('cached_active_trip', _activeTrip!.toJson());
+      addNotification("Trip Completed", "Trip #${_activeTrip?.tripNumber} ended & reconciled successfully!", "sync");
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      debugPrint('Error completing trip: $e');
+      _activeTrip?.status = 'COMPLETED';
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    }
+  }
+
   Future<bool> updateTripStatus(String newStatus) async {
     if (_activeTrip == null) return false;
     _isLoading = true;

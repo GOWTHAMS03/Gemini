@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import api from '../services/apiService';
+import api, { tripApi } from '../services/apiService';
 import {
   MapPin,
   Clock,
@@ -18,6 +18,9 @@ import {
   ChevronDown,
   ChevronUp,
   Phone,
+  Play,
+  Check,
+  X
 } from 'lucide-react';
 
 interface ShopVisit {
@@ -61,6 +64,8 @@ interface Trip {
   totalBillAmount: number;
   totalPaymentAmount: number;
   totalPendingAmount: number;
+  totalSalesAmount?: number;
+  totalCollected?: number;
 }
 
 export const TripExecutionPage: React.FC = () => {
@@ -72,6 +77,12 @@ export const TripExecutionPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedShop, setSelectedShop] = useState<ShopVisit | null>(null);
   const [expandedShops, setExpandedShops] = useState<Set<number>>(new Set());
+  const [showStartModal, setShowStartModal] = useState(false);
+  const [showEndModal, setShowEndModal] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
+  const [isEnding, setIsEnding] = useState(false);
+  const [startVerified, setStartVerified] = useState(false);
+  const [endVerified, setEndVerified] = useState(false);
 
   useEffect(() => {
     fetchTripDetails();
@@ -96,15 +107,42 @@ export const TripExecutionPage: React.FC = () => {
     }
   };
 
+  const handleStartTripConfirmed = async () => {
+    if (!trip) return;
+    try {
+      setIsStarting(true);
+      await tripApi.startTrip(trip.id);
+      setShowStartModal(false);
+      setStartVerified(false);
+      fetchTripDetails();
+    } catch (err: any) {
+      alert(`Error starting trip: ${err.response?.data?.message || err.message}`);
+    } finally {
+      setIsStarting(false);
+    }
+  };
+
+  const handleEndTripConfirmed = async () => {
+    if (!trip) return;
+    try {
+      setIsEnding(true);
+      await tripApi.completeTrip(trip.id);
+      setShowEndModal(false);
+      setEndVerified(false);
+      fetchTripDetails();
+    } catch (err: any) {
+      alert(`Error completing trip: ${err.response?.data?.message || err.message}`);
+    } finally {
+      setIsEnding(false);
+    }
+  };
+
   const updateTripStatus = async (newStatus: string) => {
     if (!trip) return;
 
     try {
-      const response = await api.patch(`/trips/${trip.id}/status`, {
-        status: newStatus,
-      });
-      setTrip(response.data);
-      alert(`Trip status updated to ${newStatus}`);
+      await tripApi.updateStatus(trip.id, newStatus);
+      fetchTripDetails();
     } catch (err: any) {
       alert(`Error updating trip: ${err.message}`);
     }
@@ -222,30 +260,36 @@ export const TripExecutionPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Action Buttons */}
+          {/* Action Buttons with Verification */}
           <div className="flex gap-3 mt-6">
-            {trip.status === 'SCHEDULED' && (
+            {trip.status !== 'IN_PROGRESS' && trip.status !== 'COMPLETED' && (
               <button
-                onClick={() => updateTripStatus('IN_PROGRESS')}
-                className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 font-semibold text-sm"
+                onClick={() => {
+                  setStartVerified(false);
+                  setShowStartModal(true);
+                }}
+                className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 font-bold text-xs shadow-xs cursor-pointer active:scale-95"
               >
-                <Navigation className="w-4 h-4" />
+                <Play className="w-4 h-4 fill-current" />
                 Start Trip
               </button>
             )}
             {trip.status === 'IN_PROGRESS' && (
               <button
-                onClick={() => updateTripStatus('COMPLETED')}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold text-sm"
+                onClick={() => {
+                  setEndVerified(false);
+                  setShowEndModal(true);
+                }}
+                className="flex items-center gap-2 px-5 py-2.5 bg-purple-600 text-white rounded-xl hover:bg-purple-700 font-bold text-xs shadow-xs cursor-pointer active:scale-95"
               >
                 <CheckCircle2 className="w-4 h-4" />
-                Complete Trip
+                End & Settle Trip
               </button>
             )}
             {trip.status === 'IN_PROGRESS' && (
               <button
                 onClick={() => updateTripStatus('CANCELLED')}
-                className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 font-semibold text-sm"
+                className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600 font-bold text-xs shadow-xs cursor-pointer"
               >
                 Cancel Trip
               </button>
@@ -513,6 +557,146 @@ export const TripExecutionPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Verify & Start Modal */}
+      {showStartModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[999999] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700 space-y-4 animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-2xl">
+                  <Play className="w-6 h-6 fill-current" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base text-slate-900 dark:text-white">Verify & Start Trip</h3>
+                  <p className="text-xs text-slate-400 font-mono">Trip #{trip.tripNumber}</p>
+                </div>
+              </div>
+              <button onClick={() => setShowStartModal(false)} className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2.5 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-medium">Route:</span>
+                <strong className="text-slate-900 dark:text-white font-bold">{trip.routeName || 'Standard Route'}</strong>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-medium">Executive:</span>
+                <strong className="text-indigo-600 font-bold">{trip.salesPersonName || 'Sales Person'}</strong>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-medium">Vehicle / Driver:</span>
+                <strong className="text-slate-800 dark:text-slate-200 font-bold">{trip.driverName || 'Driver'} • {trip.vehicleNumber || 'Van'}</strong>
+              </div>
+              <div className="flex justify-between items-center pt-2 border-t border-slate-200 dark:border-slate-700">
+                <span className="text-slate-500 font-bold">Planned Outlets:</span>
+                <span className="text-blue-600 font-black">{trip.shopVisits?.length || 0} Outlets</span>
+              </div>
+            </div>
+
+            <label className="flex items-start gap-2.5 p-3 bg-emerald-50 dark:bg-emerald-950/30 rounded-2xl border border-emerald-200 dark:border-emerald-800 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={startVerified}
+                onChange={e => setStartVerified(e.target.checked)}
+                className="mt-0.5 w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
+              />
+              <span className="text-xs text-emerald-900 dark:text-emerald-200 leading-snug">
+                I verify that the vehicle is inspected, products are loaded, and the trip is departing now.
+              </span>
+            </label>
+
+            <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100 dark:border-slate-700">
+              <button
+                type="button"
+                onClick={() => setShowStartModal(false)}
+                disabled={isStarting}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleStartTripConfirmed}
+                disabled={!startVerified || isStarting}
+                className="px-5 py-2.5 text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition flex items-center gap-2 shadow-xs cursor-pointer disabled:opacity-50 active:scale-95"
+              >
+                {isStarting ? <><RefreshCw className="w-4 h-4 animate-spin" /> Starting...</> : <><Play className="w-4 h-4 fill-current" /> Confirm & Start Trip</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Verify & End Modal */}
+      {showEndModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[999999] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700 space-y-4 animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 rounded-2xl">
+                  <CheckCircle2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base text-slate-900 dark:text-white">Verify & End Trip</h3>
+                  <p className="text-xs text-slate-400 font-mono">Trip #{trip.tripNumber}</p>
+                </div>
+              </div>
+              <button onClick={() => setShowEndModal(false)} className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2.5 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-medium">Completed Visits:</span>
+                <strong className="text-emerald-600 font-bold">{completedShops} / {trip.shopVisits?.length || 0}</strong>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-medium">Total Billed:</span>
+                <strong className="text-blue-600 font-bold">₹{trip.totalSalesAmount ?? trip.totalBillAmount ?? 0}</strong>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-medium">Total Collected:</span>
+                <strong className="text-emerald-600 font-bold">₹{trip.totalCollected ?? trip.totalPaymentAmount ?? 0}</strong>
+              </div>
+            </div>
+
+            <label className="flex items-start gap-2.5 p-3 bg-purple-50 dark:bg-purple-950/30 rounded-2xl border border-purple-200 dark:border-purple-800 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={endVerified}
+                onChange={e => setEndVerified(e.target.checked)}
+                className="mt-0.5 w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500"
+              />
+              <span className="text-xs text-purple-900 dark:text-purple-200 leading-snug">
+                I verify that all shop deliveries, invoices, and collected payments are finalized and ready for return reconciliation.
+              </span>
+            </label>
+
+            <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100 dark:border-slate-700">
+              <button
+                type="button"
+                onClick={() => setShowEndModal(false)}
+                disabled={isEnding}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleEndTripConfirmed}
+                disabled={!endVerified || isEnding}
+                className="px-5 py-2.5 text-xs font-black bg-purple-600 hover:bg-purple-700 text-white rounded-xl transition flex items-center gap-2 shadow-xs cursor-pointer disabled:opacity-50 active:scale-95"
+              >
+                {isEnding ? <><RefreshCw className="w-4 h-4 animate-spin" /> Ending...</> : <><CheckCircle2 className="w-4 h-4" /> Confirm & End Trip</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

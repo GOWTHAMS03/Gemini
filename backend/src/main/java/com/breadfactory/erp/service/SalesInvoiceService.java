@@ -234,12 +234,25 @@ public class SalesInvoiceService {
                 .build();
         shopLedgerRepository.save(ledgerEntry);
 
+        // Auto-Post Double-Entry Journal Entry for Sales Invoice
+        boolean isCredit = (request.getPaymentMode() == PaymentMode.CREDIT);
+        boolean isBank = (request.getPaymentMode() == PaymentMode.UPI || request.getPaymentMode() == PaymentMode.BANK_TRANSFER || request.getPaymentMode() == PaymentMode.CHEQUE);
+        accountingService.recordSalesInvoice(
+                invoiceNumber,
+                shop.getName(),
+                total,
+                taxableAmount,
+                tax,
+                isCredit,
+                isBank
+        );
+
         // Record Cash/Bank Treasury Inflow for Immediate Payments (CASH / UPI)
         if (request.getPaymentMode() == PaymentMode.CASH || request.getPaymentMode() == PaymentMode.UPI) {
             CashBankType accType = (request.getPaymentMode() == PaymentMode.CASH) ? CashBankType.CASH : CashBankType.BANK;
-            BigDecimal lastCash = cashBankTransactionRepository.findTopByAccountTypeOrderByCreatedAtDescIdDesc(CashBankType.CASH)
+            BigDecimal lastCash = cashBankTransactionRepository.findTopByOrderByCreatedAtDescIdDesc()
                     .map(CashBankTransaction::getRunningCashBalance).orElse(BigDecimal.ZERO);
-            BigDecimal lastBank = cashBankTransactionRepository.findTopByAccountTypeOrderByCreatedAtDescIdDesc(CashBankType.BANK)
+            BigDecimal lastBank = cashBankTransactionRepository.findTopByOrderByCreatedAtDescIdDesc()
                     .map(CashBankTransaction::getRunningBankBalance).orElse(BigDecimal.ZERO);
 
             BigDecimal newCash = (accType == CashBankType.CASH) ? lastCash.add(total) : lastCash;

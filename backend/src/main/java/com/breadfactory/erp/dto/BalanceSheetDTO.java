@@ -3,6 +3,7 @@ package com.breadfactory.erp.dto;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 @Getter
 @Setter
@@ -10,6 +11,8 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 @Builder
 public class BalanceSheetDTO {
+    private LocalDate asOfDate;
+
     // Current Assets
     private BigDecimal cashOnHand;
     private BigDecimal bankBalance;
@@ -23,10 +26,15 @@ public class BalanceSheetDTO {
     private BigDecimal gstPayable;
     private BigDecimal totalCurrentLiabilities;
 
+    // Working Capital
+    private BigDecimal workingCapital;
+
     // Equity
+    private BigDecimal ownersCapital;
     private BigDecimal retainedEarnings;
     private BigDecimal totalEquity;
 
     private BigDecimal totalAssets;
     private BigDecimal totalLiabilitiesAndEquity;
+    private boolean isBalanced;
 }

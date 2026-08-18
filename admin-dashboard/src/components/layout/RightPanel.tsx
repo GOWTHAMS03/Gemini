@@ -120,7 +120,7 @@ export const RightPanel: React.FC<RightPanelProps> = ({
                   <p className="text-xs font-bold text-[#1C1C1C] dark:text-white">Trip-101 Dispatched</p>
                   <span className="text-[10px] text-[#8C8C8C]">45m ago</span>
                 </div>
-                <p className="text-[11px] text-[#8C8C8C] mt-0.5 leading-snug">Driver Rajesh Sharma loaded with 450 Packets on North Route A</p>
+                <p className="text-[11px] text-[#8C8C8C] mt-0.5 leading-snug">Driver Rajesh Sharma loaded with 450 Packets on assigned delivery route</p>
               </div>
             </div>
 
@@ -192,7 +192,7 @@ export const RightPanel: React.FC<RightPanelProps> = ({
             <div className="relative flex items-start gap-3 text-xs">
               <span className="absolute -left-[17px] top-1 w-2 h-2 rounded-full bg-[#4CD7B6]"></span>
               <div>
-                <p className="font-bold text-[#1C1C1C] dark:text-white">Modified stock in Route A</p>
+                <p className="font-bold text-[#1C1C1C] dark:text-white">Modified truck dispatch stock</p>
                 <p className="text-[11px] text-[#8C8C8C] mt-0.5">Re-allocated 50 Buns from Truck-01 to Truck-02</p>
                 <span className="text-[10px] text-[#8C8C8C]">Today 11:59 AM • By Sales Mgr</span>
               </div>
@@ -211,8 +211,8 @@ export const RightPanel: React.FC<RightPanelProps> = ({
 
           <div className="space-y-2.5">
             {[
-              { name: 'Rajesh Sharma', role: 'Route Driver (Route A)', avatar: 'RS', bg: 'bg-[#E3F5FF]', status: 'On Route' },
-              { name: 'Mahesh Selvam', role: 'Route Driver (Route B)', avatar: 'MS', bg: 'bg-[#E5ECF6]', status: 'On Route' },
+              { name: 'Rajesh Sharma', role: 'Route Driver', avatar: 'RS', bg: 'bg-[#E3F5FF]', status: 'On Route' },
+              { name: 'Mahesh Selvam', role: 'Route Driver', avatar: 'MS', bg: 'bg-[#E5ECF6]', status: 'On Route' },
               { name: 'Sunil Verma', role: 'Fleet Manager', avatar: 'SV', bg: 'bg-[#F3E8FF]', status: 'In Office' },
               { name: 'Ramesh Kumar', role: 'Oven Operator', avatar: 'RK', bg: 'bg-[#E5F2FE]', status: 'Factory Floor' },
               { name: 'Suresh Patel', role: 'Store Manager', avatar: 'SP', bg: 'bg-[#E6F9F3]', status: 'Warehouse' },

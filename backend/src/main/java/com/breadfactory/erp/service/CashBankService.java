@@ -1,6 +1,7 @@
 package com.breadfactory.erp.service;
 
 import com.breadfactory.erp.dto.CashTransactionRequest;
+import com.breadfactory.erp.dto.CashTransferRequest;
 import com.breadfactory.erp.dto.DailyCashClosingRequest;
 import com.breadfactory.erp.entity.CashBankTransaction;
 import com.breadfactory.erp.entity.DailyCashClosing;
@@ -9,6 +10,7 @@ import com.breadfactory.erp.enums.CashTransactionType;
 import com.breadfactory.erp.repository.CashBankTransactionRepository;
 import com.breadfactory.erp.repository.DailyCashClosingRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +20,7 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class CashBankService {
 
     private final CashBankTransactionRepository cashBankTransactionRepository;
@@ -36,14 +39,16 @@ public class CashBankService {
 
     @Transactional(readOnly = true)
     public BigDecimal getCurrentCashBalance() {
-        return cashBankTransactionRepository.findTopByAccountTypeOrderByCreatedAtDescIdDesc(CashBankType.CASH)
-                .map(CashBankTransaction::getRunningCashBalance).orElse(BigDecimal.ZERO);
+        return cashBankTransactionRepository.findTopByOrderByCreatedAtDescIdDesc()
+                .map(CashBankTransaction::getRunningCashBalance)
+                .orElse(BigDecimal.ZERO);
     }
 
     @Transactional(readOnly = true)
     public BigDecimal getCurrentBankBalance() {
-        return cashBankTransactionRepository.findTopByAccountTypeOrderByCreatedAtDescIdDesc(CashBankType.BANK)
-                .map(CashBankTransaction::getRunningBankBalance).orElse(BigDecimal.ZERO);
+        return cashBankTransactionRepository.findTopByOrderByCreatedAtDescIdDesc()
+                .map(CashBankTransaction::getRunningBankBalance)
+                .orElse(BigDecimal.ZERO);
     }
 
     @Transactional
@@ -83,7 +88,88 @@ public class CashBankService {
                 .notes(request.getNotes())
                 .build();
 
-        return cashBankTransactionRepository.save(txn);
+        CashBankTransaction savedTxn = cashBankTransactionRepository.save(txn);
+
+        // Auto post double-entry journal for manual treasury adjustment
+        String refType = request.getReferenceType() != null ? request.getReferenceType() : "TREASURY_ADJUSTMENT";
+        if ("MANUAL_ADJUSTMENT".equalsIgnoreCase(refType) || "OTHER_INCOME".equalsIgnoreCase(refType)) {
+            if (request.getAccountType() == CashBankType.CASH) {
+                if (request.getTransactionType() == CashTransactionType.CASH_IN) {
+                    accountingService.recordJournalEntry("TREASURY_INFLOW", txnNum, "Cash Drawer Inflow: " + request.getNotes(), "1000", request.getAmount(), "4100", request.getAmount());
+                } else {
+                    accountingService.recordJournalEntry("TREASURY_OUTFLOW", txnNum, "Cash Drawer Outflow: " + request.getNotes(), "5700", request.getAmount(), "1000", request.getAmount());
+                }
+            } else {
+                if (request.getTransactionType() == CashTransactionType.BANK_DEPOSIT || request.getTransactionType() == CashTransactionType.CASH_IN) {
+                    accountingService.recordJournalEntry("BANK_INFLOW", txnNum, "Bank Deposit Inflow: " + request.getNotes(), "1100", request.getAmount(), "4100", request.getAmount());
+                } else {
+                    accountingService.recordJournalEntry("BANK_OUTFLOW", txnNum, "Bank Withdrawal Outflow: " + request.getNotes(), "5700", request.getAmount(), "1100", request.getAmount());
+                }
+            }
+        }
+
+        return savedTxn;
+    }
+
+    /**
+     * Records a Contra Transfer between Cash and Bank accounts.
+     */
+    @Transactional
+    public CashBankTransaction recordTransfer(CashTransferRequest request) {
+        if (request.getFromAccount() == request.getToAccount()) {
+            throw new IllegalArgumentException("Source and destination accounts must be different.");
+        }
+
+        BigDecimal lastCash = getCurrentCashBalance();
+        BigDecimal lastBank = getCurrentBankBalance();
+
+        BigDecimal amount = request.getAmount();
+
+        if (request.getFromAccount() == CashBankType.CASH && lastCash.compareTo(amount) < 0) {
+            log.warn("Transferring amount ₹{} exceeds current cash drawer balance ₹{}", amount, lastCash);
+        }
+        if (request.getFromAccount() == CashBankType.BANK && lastBank.compareTo(amount) < 0) {
+            log.warn("Transferring amount ₹{} exceeds current bank balance ₹{}", amount, lastBank);
+        }
+
+        BigDecimal newCash = (request.getFromAccount() == CashBankType.CASH)
+                ? lastCash.subtract(amount)
+                : lastCash.add(amount);
+
+        BigDecimal newBank = (request.getFromAccount() == CashBankType.BANK)
+                ? lastBank.subtract(amount)
+                : lastBank.add(amount);
+
+        String txnNum = "XFER-" + System.currentTimeMillis();
+        String refNum = request.getReferenceNumber() != null ? request.getReferenceNumber() : txnNum;
+        String notes = request.getNotes() != null ? request.getNotes() :
+                String.format("Transfer from %s to %s", request.getFromAccount(), request.getToAccount());
+
+        CashBankTransaction txn = CashBankTransaction.builder()
+                .transactionNumber(txnNum)
+                .accountType(request.getToAccount())
+                .transactionType(CashTransactionType.TRANSFER)
+                .amount(amount)
+                .referenceType("CONTRA_TRANSFER")
+                .referenceNumber(refNum)
+                .runningCashBalance(newCash)
+                .runningBankBalance(newBank)
+                .reconciliationStatus("RECONCILED")
+                .notes(notes)
+                .build();
+
+        CashBankTransaction savedTxn = cashBankTransactionRepository.save(txn);
+
+        // Auto post double-entry Contra Journal Entry
+        accountingService.recordContraTransfer(
+                refNum,
+                request.getFromAccount().name(),
+                request.getToAccount().name(),
+                amount,
+                notes
+        );
+
+        return savedTxn;
     }
 
     @Transactional

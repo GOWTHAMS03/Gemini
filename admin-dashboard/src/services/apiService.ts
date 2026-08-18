@@ -1,6 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
 
-const BASE_URL = (import.meta as any).env?.VITE_API_URL || '/api/v1';
+const BASE_URL = (import.meta as any).env?.VITE_API_URL || (import.meta as any).env?.VITE_API_BASE_URL || '/api/v1';
 
 const api: AxiosInstance = axios.create({
   baseURL: BASE_URL,
@@ -17,7 +17,7 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 && !error.config?.url?.includes('/auth/')) {
       localStorage.removeItem('auth_token');
       window.location.href = '/login';
     }
@@ -91,11 +91,18 @@ export const tripApi = {
   getAll: () => api.get<ApiTrip[]>('/trips'),
   getById: (id: number) => api.get<ApiTrip>(`/trips/${id}`),
   getActiveForDriver: (driverId: number) =>
-    api.get<ApiTrip[]>(`/trips/driver/${driverId}/active`),
+    api.get<ApiTrip>(`/trips/driver/${driverId}/active`),
+  getActiveForSalesPerson: (salesPersonId: number) =>
+    api.get<ApiTrip>(`/trips/sales/${salesPersonId}/active`),
   getHistoryForDriver: (driverId: number) =>
     api.get<ApiTrip[]>(`/trips/driver/${driverId}/history`),
-  dispatch: (payload: TripDispatchPayload) => api.post<ApiTrip>('/trips/dispatch', payload),
-  completeTrip: (id: number) => api.patch<ApiTrip>(`/trips/${id}/complete`),
+  dispatch: (payload: TripDispatchPayload | number) => 
+    typeof payload === 'number' 
+      ? api.post<ApiTrip>(`/trips/${payload}/dispatch`)
+      : api.post<ApiTrip>('/trips/dispatch', payload),
+  startTrip: (id: number) => api.post<ApiTrip>(`/trips/${id}/start`),
+  completeTrip: (id: number) => api.post<ApiTrip>(`/trips/${id}/complete`),
+  updateStatus: (id: number, status: string) => api.put<ApiTrip>(`/trips/${id}/status?status=${status}`),
   delete: (id: number) => api.delete(`/trips/${id}`),
 };
 
@@ -425,6 +432,7 @@ export const tripRouteApi = {
       data
     ),
 };
+
 
 // ─── Raw Materials ────────────────────────────────────────────────────────────
 
@@ -867,6 +875,9 @@ export interface ApiCashBankTransaction {
 }
 
 export interface ApiFinanceDashboard {
+  selectedPeriod?: string;
+  periodSalesRevenue?: number;
+  periodPurchasesAmount?: number;
   todaySalesRevenue: number;
   todayPurchasesAmount: number;
   currentCashBalance: number;
@@ -877,6 +888,9 @@ export interface ApiFinanceDashboard {
   monthlyExpenses: number;
   grossProfit: number;
   netProfit: number;
+  workingCapital?: number;
+  grossProfitMarginPct?: number;
+  netProfitMarginPct?: number;
   expensesByCategory: Record<string, number>;
   recentTransactions: Array<{
     type: string;
@@ -888,19 +902,27 @@ export interface ApiFinanceDashboard {
 }
 
 export interface ApiProfitAndLoss {
+  startDate?: string;
+  endDate?: string;
   grossSales: number;
-  salesReturns: number;
+  salesReturns?: number;
+  customerDiscounts?: number;
   netSalesRevenue: number;
   costOfGoodsSold: number;
   grossProfit: number;
+  grossProfitMarginPct?: number;
   totalOperatingExpenses: number;
   expenseBreakdown: Record<string, number>;
+  operatingProfit?: number;
+  operatingProfitMarginPct?: number;
   netProfitBeforeTax: number;
   estimatedTax: number;
   netProfit: number;
+  netProfitMarginPct?: number;
 }
 
 export interface ApiBalanceSheet {
+  asOfDate?: string;
   cashOnHand: number;
   bankBalance: number;
   accountsReceivable: number;
@@ -910,10 +932,90 @@ export interface ApiBalanceSheet {
   accountsPayable: number;
   gstPayable: number;
   totalCurrentLiabilities: number;
+  workingCapital?: number;
+  ownersCapital?: number;
   retainedEarnings: number;
   totalEquity: number;
   totalAssets: number;
   totalLiabilitiesAndEquity: number;
+  isBalanced?: boolean;
+}
+
+export interface ApiCashFlow {
+  startDate?: string;
+  endDate?: string;
+  cashFromSalesInvoices: number;
+  cashFromCustomerDebtors: number;
+  totalOperatingCashInflow: number;
+  cashPaidForRawMaterials: number;
+  cashPaidForExpensesAndSalaries: number;
+  cashPaidForGst: number;
+  totalOperatingCashOutflow: number;
+  netOperatingCashFlow: number;
+  openingCashAndBank: number;
+  closingCashAndBank: number;
+  netTreasuryChange: number;
+}
+
+export interface ApiTrialBalance {
+  asOfDate?: string;
+  accounts: Array<{
+    accountCode: string;
+    accountName: string;
+    accountType: string;
+    debitBalance: number;
+    creditBalance: number;
+  }>;
+  totalDebits: number;
+  totalCredits: number;
+  isBalanced: boolean;
+}
+
+export interface ApiGstTaxInvoiceItem {
+  invoiceNumber: string;
+  partyName: string;
+  gstin: string;
+  date: string;
+  taxableValue: number;
+  gstRate: number;
+  gstAmount: number;
+  type: string;
+}
+
+export interface ApiGstSummary {
+  startDate?: string;
+  endDate?: string;
+  totalTaxableSales: number;
+  totalOutputGst: number;
+  outputCgst: number;
+  outputSgst: number;
+  totalTaxablePurchases: number;
+  totalInputTaxCredit: number;
+  inputCgst: number;
+  inputSgst: number;
+  netGstPayable: number;
+  itcCarryForward: number;
+  salesTaxInvoices: ApiGstTaxInvoiceItem[];
+  purchaseTaxInvoices: ApiGstTaxInvoiceItem[];
+}
+
+export interface ApiJournalEntry {
+  id: number;
+  entryNumber: string;
+  entryDate: string;
+  referenceType?: string;
+  referenceNumber?: string;
+  description?: string;
+  totalDebit: number;
+  totalCredit: number;
+  createdAt: string;
+  lines: Array<{
+    id: number;
+    accountCode: string;
+    debitAmount: number;
+    creditAmount: number;
+    memo?: string;
+  }>;
 }
 
 export const purchasesApi = {
@@ -941,6 +1043,8 @@ export const cashBankApi = {
   getTransactions: () => api.get<ApiCashBankTransaction[]>('/cash-bank/transactions'),
   getBalances: () => api.get<{ cashBalance: number; bankBalance: number }>('/cash-bank/balances'),
   recordTransaction: (data: any) => api.post<ApiCashBankTransaction>('/cash-bank/transaction', data),
+  recordTransfer: (data: { fromAccount: string; toAccount: string; amount: number; referenceNumber?: string; notes?: string }) =>
+    api.post<ApiCashBankTransaction>('/cash-bank/transfer', data),
   executeDailyClosing: (data: { closingDate?: string; actualCashCounted: number; notes?: string }) =>
     api.post('/cash-bank/daily-closing', data),
 };
@@ -992,9 +1096,31 @@ export const recipeApi = {
 };
 
 export const financeReportsApi = {
-  getDashboard: () => api.get<ApiFinanceDashboard>('/finance/dashboard'),
-  getProfitAndLoss: () => api.get<ApiProfitAndLoss>('/finance/reports/profit-and-loss'),
-  getBalanceSheet: () => api.get<ApiBalanceSheet>('/finance/reports/balance-sheet'),
+  getDashboard: (period?: string) => api.get<ApiFinanceDashboard>(`/finance/dashboard${period ? `?period=${period}` : ''}`),
+  getProfitAndLoss: (startDate?: string, endDate?: string) => {
+    const params = new URLSearchParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    const qs = params.toString();
+    return api.get<ApiProfitAndLoss>(`/finance/reports/profit-and-loss${qs ? `?${qs}` : ''}`);
+  },
+  getBalanceSheet: (asOfDate?: string) => api.get<ApiBalanceSheet>(`/finance/reports/balance-sheet${asOfDate ? `?asOfDate=${asOfDate}` : ''}`),
+  getCashFlow: (startDate?: string, endDate?: string) => {
+    const params = new URLSearchParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    const qs = params.toString();
+    return api.get<ApiCashFlow>(`/finance/reports/cash-flow${qs ? `?${qs}` : ''}`);
+  },
+  getTrialBalance: (asOfDate?: string) => api.get<ApiTrialBalance>(`/finance/reports/trial-balance${asOfDate ? `?asOfDate=${asOfDate}` : ''}`),
+  getGstSummary: (startDate?: string, endDate?: string) => {
+    const params = new URLSearchParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    const qs = params.toString();
+    return api.get<ApiGstSummary>(`/finance/reports/gst-summary${qs ? `?${qs}` : ''}`);
+  },
+  getJournalEntries: () => api.get<ApiJournalEntry[]>('/finance/reports/journal-entries'),
 };
 
 export interface ApiDashboardKpis {
@@ -1371,6 +1497,28 @@ export const tripSettlementApi = {
   submitEod: (tripId: number, data: EodSettlementPayload) =>
     api.post<ApiTripFinancialSummary>(`/trips/${tripId}/eod`, data),
   getTripDashboardKpis: () => api.get<any>('/trips/dashboard/kpis'),
+};
+
+export interface DispatchGroupDTO {
+  id: number;
+  groupName: string;
+  description?: string;
+  salesPersonId?: number;
+  salesPersonName?: string;
+  driverId?: number;
+  driverName?: string;
+  vehicleId?: number;
+  vehicleNumber?: string;
+  status?: string;
+  isActive?: boolean;
+}
+
+export const dispatchGroupApi = {
+  getAll: () => api.get<DispatchGroupDTO[]>('/dispatch-groups'),
+  getById: (id: number) => api.get<DispatchGroupDTO>(`/dispatch-groups/${id}`),
+  create: (data: any) => api.post<DispatchGroupDTO>('/dispatch-groups', data),
+  update: (id: number, data: any) => api.put<DispatchGroupDTO>(`/dispatch-groups/${id}`, data),
+  delete: (id: number) => api.delete<void>(`/dispatch-groups/${id}`),
 };
 
 export const dispatchGroupDetailsApi = {

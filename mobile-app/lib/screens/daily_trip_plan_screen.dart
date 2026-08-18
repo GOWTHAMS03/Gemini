@@ -193,8 +193,8 @@ class _DailyTripPlanScreenState extends State<DailyTripPlanScreen> with SingleTi
     setState(() => _isLoading = true);
 
     try {
-      // 1. Send status update to backend API PUT /trips/{id}/status?status=IN_PROGRESS
-      await _apiService.updateTripStatus(tripId, 'IN_PROGRESS');
+      // 1. Send start trip request to backend API POST /trips/{id}/start
+      await _apiService.startTrip(tripId);
 
       // 2. Update local DeliveryProvider active trip status
       final provider = Provider.of<DeliveryProvider>(context, listen: false);

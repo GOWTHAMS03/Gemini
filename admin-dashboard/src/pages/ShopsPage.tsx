@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { shopApi } from '../services/apiService';
+import React, { useState, useEffect, useMemo } from 'react';
+import { shopApi, routeApi, ApiDeliveryRoute } from '../services/apiService';
 import { 
   Plus, 
   Store, 
@@ -40,13 +40,13 @@ export interface ShopItem {
   phone: string;
   gstin: string;
   address: string;
-  areaName?: string;
+  areaName: string;
   route: string;
   customerType: 'SHOP' | 'WHOLESALE_AGENT' | 'RETAIL_CUSTOMER';
   discountPercent: number;
   outstanding: number;
-  latitude?: number;
-  longitude?: number;
+  latitude: number;
+  longitude: number;
   locationAccuracy?: number;
   registeredDate: string;
   status: 'ACTIVE' | 'CREDIT_HOLD' | 'INACTIVE';
@@ -71,6 +71,7 @@ const DEFAULT_DISCOUNTS: Record<'SHOP' | 'WHOLESALE_AGENT' | 'RETAIL_CUSTOMER', 
 
 export const ShopsPage: React.FC = () => {
   const [shops, setShops] = useState<ShopItem[]>([]);
+  const [availableRoutes, setAvailableRoutes] = useState<ApiDeliveryRoute[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [routeFilter, setRouteFilter] = useState('ALL');
   const [creditFilter, setCreditFilter] = useState('ALL');
@@ -78,29 +79,35 @@ export const ShopsPage: React.FC = () => {
   const [viewMode, setViewMode] = useState<'table' | 'grid' | 'map'>('table');
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch Shops from Backend API
+  // Fetch Shops and Delivery Routes from Backend API
   const fetchShops = () => {
     setIsLoading(true);
-    shopApi.getAll()
-      .then((res) => {
-        if (res.data) {
-          const mapped = res.data.map((s: any) => ({
+    Promise.all([
+      shopApi.getAll().catch(() => ({ data: [] })),
+      routeApi.getAll().catch(() => ({ data: [] }))
+    ])
+      .then(([shopsRes, routesRes]) => {
+        if (routesRes && routesRes.data) {
+          setAvailableRoutes(routesRes.data);
+        }
+        if (shopsRes && shopsRes.data) {
+          const mapped = shopsRes.data.map((s: any) => ({
             id: s.id,
             shopCode: s.shopCode,
             name: s.name,
             owner: s.ownerName,
             phone: s.phone,
-            gstin: s.gstin || '33AAAAA0000A1Z5',
+            gstin: s.gstin || '',
             address: s.address,
-            areaName: s.areaName || 'Salem City Center',
-            route: s.routeName || 'Salem North Route',
+            areaName: s.areaName || '',
+            route: s.routeName || '',
             customerType: s.customerType || 'SHOP',
             discountPercent: s.discountPercent || 8,
             outstanding: s.outstandingAmount,
             latitude: s.latitude ? Number(s.latitude) : 10.787252191240228,
             longitude: s.longitude ? Number(s.longitude) : 79.57505803846621,
             locationAccuracy: s.locationAccuracy ? Number(s.locationAccuracy) : 5.0,
-            registeredDate: s.createdAt ? s.createdAt.substring(0, 10) : '2026-08-01',
+            registeredDate: s.createdAt ? s.createdAt.substring(0, 10) : '',
             status: (s.outstandingAmount > 0 ? 'CREDIT_HOLD' : 'ACTIVE') as 'ACTIVE' | 'CREDIT_HOLD' | 'INACTIVE',
             lastOrderDate: '2026-08-04',
           }));
@@ -117,6 +124,18 @@ export const ShopsPage: React.FC = () => {
     fetchShops();
   }, []);
 
+  // Dynamically derive route options strictly from created delivery routes & existing shop routes
+  const routeOptions = useMemo(() => {
+    const names = new Set<string>();
+    availableRoutes.forEach(r => {
+      if (r.routeName && r.routeName.trim()) names.add(r.routeName.trim());
+    });
+    shops.forEach(s => {
+      if (s.route && s.route.trim()) names.add(s.route.trim());
+    });
+    return Array.from(names).map(name => ({ value: name, label: name, badge: 'ROUTE' }));
+  }, [availableRoutes, shops]);
+
   // Modal & Drawer states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedLedgerShop, setSelectedLedgerShop] = useState<ShopItem | null>(null);
@@ -127,13 +146,13 @@ export const ShopsPage: React.FC = () => {
     owner: '',
     phone: '',
     gstin: '',
-    address: '14, Fort Main Road, Salem, Tamil Nadu',
-    areaName: 'Fort Area, Salem',
-    route: 'Salem North Commercial Route',
+    address: '',
+    areaName: '',
+    route: '',
     customerType: 'WHOLESALE_AGENT' as 'SHOP' | 'WHOLESALE_AGENT' | 'RETAIL_CUSTOMER',
     discountPercent: '15',
-        latitude: 10.787252191240228,
-        longitude: 79.57505803846621,
+    latitude: 10.787252191240228,
+    longitude: 79.57505803846621,
     locationAccuracy: 4.5,
   });
 
@@ -197,9 +216,9 @@ export const ShopsPage: React.FC = () => {
         owner: '',
         phone: '',
         gstin: '',
-        address: '14, Fort Main Road, Salem, Tamil Nadu',
-        areaName: 'Fort Area, Salem',
-        route: 'Salem North Commercial Route',
+        address: '',
+        areaName: '',
+        route: '',
         customerType: 'WHOLESALE_AGENT',
         discountPercent: '15',
         latitude: 10.787252191240228,
@@ -430,10 +449,7 @@ export const ShopsPage: React.FC = () => {
               onChange={setRouteFilter}
               options={[
                 { value: 'ALL', label: 'All Delivery Routes' },
-                { value: 'North Chennai Route A', label: 'North Chennai Route A' },
-                { value: 'South Chennai Route B', label: 'South Chennai Route B' },
-                { value: 'Chennai Central Express', label: 'Chennai Central Express' },
-                { value: 'East Coast Industrial', label: 'East Coast Industrial' },
+                ...routeOptions
               ]}
               placeholder="Delivery Route"
             />
@@ -988,12 +1004,7 @@ export const ShopsPage: React.FC = () => {
                     <CustomSelect
                       value={formData.route}
                       onChange={val => setFormData(prev => ({ ...prev, route: val }))}
-                      options={[
-                        { value: 'Salem North Commercial Route', label: 'Salem North Commercial Route' },
-                        { value: 'Salem South Route', label: 'Salem South Route' },
-                        { value: 'Attur - Mettur Route', label: 'Attur - Mettur Route' },
-                        { value: 'Omalur Industrial Route', label: 'Omalur Industrial Route' },
-                      ]}
+                      options={routeOptions.length > 0 ? routeOptions : [{ value: '', label: '-- No Routes Created Yet --' }]}
                       placeholder="Select Delivery Route"
                     />
                   </div>

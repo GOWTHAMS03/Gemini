@@ -12,6 +12,9 @@ import java.util.Map;
 @AllArgsConstructor
 @Builder
 public class FinanceDashboardDTO {
+    private String selectedPeriod; // TODAY, THIS_WEEK, MTD, ALL_TIME
+    private BigDecimal periodSalesRevenue;
+    private BigDecimal periodPurchasesAmount;
     private BigDecimal todaySalesRevenue;
     private BigDecimal todayPurchasesAmount;
     private BigDecimal currentCashBalance;
@@ -22,6 +25,9 @@ public class FinanceDashboardDTO {
     private BigDecimal monthlyExpenses;
     private BigDecimal grossProfit;
     private BigDecimal netProfit;
+    private BigDecimal workingCapital;
+    private BigDecimal grossProfitMarginPct;
+    private BigDecimal netProfitMarginPct;
     private Map<String, BigDecimal> expensesByCategory;
     private List<RecentFinancialTransactionDTO> recentTransactions;
 
@@ -31,7 +37,7 @@ public class FinanceDashboardDTO {
     @AllArgsConstructor
     @Builder
     public static class RecentFinancialTransactionDTO {
-        private String type; // SALES, PURCHASE, EXPENSE, CASH_IN, CASH_OUT
+        private String type; // SALES_INVOICE, PURCHASE_INVOICE, EXPENSE, CUSTOMER_PAYMENT, SUPPLIER_PAYMENT, CONTRA_TRANSFER
         private String referenceNumber;
         private String partyName;
         private BigDecimal amount;

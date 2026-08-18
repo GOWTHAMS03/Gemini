@@ -22,18 +22,31 @@ import {
   Award,
   Sparkles,
   ChevronRight,
-  RefreshCw
+  RefreshCw,
+  Play,
+  Truck,
+  Navigation,
+  Check
 } from 'lucide-react';
-import { salesExecutiveApi, ApiSalesExecutive } from '../services/apiService';
+import { salesExecutiveApi, tripApi, ApiSalesExecutive } from '../services/apiService';
 import { CustomSelect } from '../components/common';
 
 export const SalesExecutivesPage: React.FC = () => {
   const [salesExecutives, setSalesExecutives] = useState<ApiSalesExecutive[]>([]);
+  const [trips, setTrips] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  // Start & End Trip Verification State
+  const [tripToStart, setTripToStart] = useState<any | null>(null);
+  const [tripToEnd, setTripToEnd] = useState<any | null>(null);
+  const [isStartingTrip, setIsStartingTrip] = useState(false);
+  const [isEndingTrip, setIsEndingTrip] = useState(false);
+  const [startVerificationChecked, setStartVerificationChecked] = useState(false);
+  const [endVerificationChecked, setEndVerificationChecked] = useState(false);
 
   // Onboard / Edit Modal State
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
@@ -45,7 +58,6 @@ export const SalesExecutivesPage: React.FC = () => {
   const [password, setPassword] = useState<string>('');
   const [email, setEmail] = useState<string>('');
   const [phone, setPhone] = useState<string>('');
-  const [assignedRoute, setAssignedRoute] = useState<string>('North Chennai Route A');
   const [mobileAccessEnabled, setMobileAccessEnabled] = useState<boolean>(true);
   const [permissionsInput, setPermissionsInput] = useState<string>('');
 
@@ -54,11 +66,15 @@ export const SalesExecutivesPage: React.FC = () => {
     setTimeout(() => setToastMsg(null), 3500);
   };
 
-  const loadSalesExecutives = async () => {
+  const loadData = async () => {
     setIsLoading(true);
     try {
-      const res = await salesExecutiveApi.getAll();
-      setSalesExecutives(res.data || []);
+      const [execsRes, tripsRes] = await Promise.all([
+        salesExecutiveApi.getAll(),
+        tripApi.getAll().catch(() => ({ data: [] }))
+      ]);
+      setSalesExecutives(execsRes.data || []);
+      setTrips(tripsRes.data || []);
     } catch (err) {
       console.error('Error loading sales executives:', err);
     } finally {
@@ -67,8 +83,47 @@ export const SalesExecutivesPage: React.FC = () => {
   };
 
   useEffect(() => {
-    loadSalesExecutives();
+    loadData();
   }, []);
+
+  const getActiveTripForExec = (exec: ApiSalesExecutive) => {
+    return trips.find(t => 
+      (t.salesPersonId === exec.id || t.salesPersonName?.toLowerCase() === exec.fullName?.toLowerCase()) &&
+      (t.status === 'IN_PROGRESS' || t.status === 'DISPATCHED' || t.status === 'DRAFT')
+    );
+  };
+
+  const handleStartTripConfirmed = async () => {
+    if (!tripToStart) return;
+    try {
+      setIsStartingTrip(true);
+      await tripApi.startTrip(tripToStart.id);
+      showToast(`🚀 Trip #${tripToStart.tripNumber} started successfully for ${tripToStart.salesPersonName}!`);
+      setTripToStart(null);
+      setStartVerificationChecked(false);
+      loadData();
+    } catch (err: any) {
+      showToast('Failed to start trip: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setIsStartingTrip(false);
+    }
+  };
+
+  const handleEndTripConfirmed = async () => {
+    if (!tripToEnd) return;
+    try {
+      setIsEndingTrip(true);
+      await tripApi.completeTrip(tripToEnd.id);
+      showToast(`🏁 Trip #${tripToEnd.tripNumber} completed and reconciled!`);
+      setTripToEnd(null);
+      setEndVerificationChecked(false);
+      loadData();
+    } catch (err: any) {
+      showToast('Failed to complete trip: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setIsEndingTrip(false);
+    }
+  };
 
   const resetForm = () => {
     setFullName('');
@@ -76,7 +131,6 @@ export const SalesExecutivesPage: React.FC = () => {
     setPassword('');
     setEmail('');
     setPhone('');
-    setAssignedRoute('North Chennai Route A');
     setMobileAccessEnabled(true);
     setPermissionsInput('');
     setEditingExecutive(null);
@@ -136,7 +190,7 @@ export const SalesExecutivesPage: React.FC = () => {
 
       setIsModalOpen(false);
       resetForm();
-      loadSalesExecutives();
+      loadData();
     } catch (err: any) {
       const msg = err?.response?.data || 'Failed to save Sales Executive credentials.';
       showToast(`Error: ${msg}`);
@@ -147,7 +201,7 @@ export const SalesExecutivesPage: React.FC = () => {
     try {
       await salesExecutiveApi.update(exec.id, { isActive: !exec.isActive });
       showToast(`Status updated for ${exec.fullName}`);
-      loadSalesExecutives();
+      loadData();
     } catch (err) {
       showToast('Failed to update status.');
     }
@@ -158,7 +212,7 @@ export const SalesExecutivesPage: React.FC = () => {
     try {
       await salesExecutiveApi.delete(id);
       showToast(`Sales Executive "${name}" deleted.`);
-      loadSalesExecutives();
+      loadData();
     } catch (err) {
       showToast('Failed to delete user.');
     }
@@ -220,7 +274,7 @@ export const SalesExecutivesPage: React.FC = () => {
 
         <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
           <button
-            onClick={() => loadSalesExecutives()}
+            onClick={() => loadData()}
             className="p-2.5 bg-[#F8F9FA] dark:bg-slate-700 hover:bg-[#F0F2F5] dark:hover:bg-slate-600 text-[#1C1C1C] dark:text-slate-200 rounded-xl transition cursor-pointer border border-[#E9ECEF] dark:border-slate-600"
             title="Refresh List"
           >
@@ -375,78 +429,131 @@ export const SalesExecutivesPage: React.FC = () => {
       ) : viewMode === 'grid' ? (
         /* Grid Cards View */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredExecutives.map((exec) => (
-            <div
-              key={exec.id}
-              className="bg-white dark:bg-slate-800 rounded-2xl border border-[#F0F2F5] dark:border-slate-700 p-5 shadow-2xs hover:shadow-md transition space-y-4 flex flex-col justify-between"
-            >
-              <div className="space-y-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center font-black text-white text-base shadow-sm">
-                      {exec.fullName.charAt(0).toUpperCase()}
+          {filteredExecutives.map((exec) => {
+            const activeTrip = getActiveTripForExec(exec);
+            return (
+              <div
+                key={exec.id}
+                className="bg-white dark:bg-slate-800 rounded-2xl border border-[#F0F2F5] dark:border-slate-700 p-5 shadow-2xs hover:shadow-md transition space-y-4 flex flex-col justify-between"
+              >
+                <div className="space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center font-black text-white text-base shadow-sm">
+                        {exec.fullName.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <h3 className="font-extrabold text-sm text-[#1C1C1C] dark:text-white">{exec.fullName}</h3>
+                        <p className="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400">@{exec.username}</p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-extrabold text-sm text-[#1C1C1C] dark:text-white">{exec.fullName}</h3>
-                      <p className="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400">@{exec.username}</p>
-                    </div>
+
+                    <button
+                      onClick={() => handleToggleStatus(exec)}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold transition border ${
+                        exec.isActive
+                          ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20'
+                          : 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/20'
+                      }`}
+                    >
+                      {exec.isActive ? 'ACTIVE' : 'INACTIVE'}
+                    </button>
                   </div>
 
-                  <button
-                    onClick={() => handleToggleStatus(exec)}
-                    className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold transition border ${
-                      exec.isActive
-                        ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20'
-                        : 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/20'
-                    }`}
-                  >
-                    {exec.isActive ? 'ACTIVE' : 'INACTIVE'}
-                  </button>
+                  <div className="space-y-2 pt-2 text-xs text-[#8C8C8C] dark:text-slate-400">
+                    {exec.phone && (
+                      <div className="flex items-center gap-2">
+                        <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <span>{exec.phone}</span>
+                      </div>
+                    )}
+                    {exec.email && (
+                      <div className="flex items-center gap-2">
+                        <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <span className="truncate">{exec.email}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Active Trip Status & Quick Controls */}
+                  {activeTrip ? (
+                    <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-xl border border-blue-200 dark:border-blue-800 space-y-2 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-blue-900 dark:text-blue-300 flex items-center gap-1.5 text-[11px]">
+                          <Navigation className="w-3.5 h-3.5 text-blue-600" />
+                          {activeTrip.routeName || 'Assigned Route'}
+                        </span>
+                        <span className={`px-2 py-0.2 rounded-full text-[9px] font-black font-mono ${
+                          activeTrip.status === 'IN_PROGRESS'
+                            ? 'bg-purple-600 text-white animate-pulse'
+                            : 'bg-blue-600 text-white'
+                        }`}>
+                          {activeTrip.status === 'IN_PROGRESS' ? 'IN PROGRESS' : 'DISPATCHED'}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between items-center text-[10px] text-blue-700 dark:text-blue-400 font-mono">
+                        <span>Trip #{activeTrip.tripNumber}</span>
+                        <span>{activeTrip.totalLoadedQuantity || 0} Pkts Loaded</span>
+                      </div>
+
+                      <div className="pt-1 border-t border-blue-200/60 dark:border-blue-800/60 flex items-center gap-1.5">
+                        {activeTrip.status !== 'IN_PROGRESS' ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTripToStart(activeTrip);
+                              setStartVerificationChecked(false);
+                            }}
+                            className="w-full py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-lg flex items-center justify-center gap-1 shadow-2xs cursor-pointer"
+                          >
+                            <Play className="w-3 h-3 fill-current" /> Start Trip Now
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTripToEnd(activeTrip);
+                              setEndVerificationChecked(false);
+                            }}
+                            className="w-full py-1.5 bg-purple-600 hover:bg-purple-700 text-white font-extrabold text-xs rounded-lg flex items-center justify-center gap-1 shadow-2xs cursor-pointer"
+                          >
+                            <CheckCircle2 className="w-3 h-3" /> End & Reconcile Trip
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-2 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 text-center text-[11px] text-slate-400 font-medium">
+                      Standby (No Active Trip)
+                    </div>
+                  )}
                 </div>
 
-                <div className="space-y-2 pt-2 text-xs text-[#8C8C8C] dark:text-slate-400">
-                  {exec.phone && (
-                    <div className="flex items-center gap-2">
-                      <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span>{exec.phone}</span>
-                    </div>
-                  )}
-                  {exec.email && (
-                    <div className="flex items-center gap-2">
-                      <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span className="truncate">{exec.email}</span>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2">
-                    <KeyRound className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span>Mobile Access: <strong className="text-emerald-600 dark:text-emerald-400">Enabled</strong></span>
+                <div className="pt-3 border-t border-[#F0F2F5] dark:border-slate-700 flex items-center justify-between text-xs">
+                  <span className="text-[10px] font-bold text-[#8C8C8C] dark:text-slate-400">
+                    ID: #{exec.id}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => openOnboardModal(exec)}
+                      className="p-2 text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-[#F8F9FA] dark:hover:bg-slate-700 rounded-lg transition"
+                      title="Edit Sales Executive"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(exec.id, exec.fullName)}
+                      className="p-2 text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-[#F8F9FA] dark:hover:bg-slate-700 rounded-lg transition"
+                      title="Delete Staff"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
               </div>
-
-              <div className="pt-3 border-t border-[#F0F2F5] dark:border-slate-700 flex items-center justify-between text-xs">
-                <span className="text-[10px] font-bold text-[#8C8C8C] dark:text-slate-400">
-                  ID: #{exec.id}
-                </span>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => openOnboardModal(exec)}
-                    className="p-2 text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-[#F8F9FA] dark:hover:bg-slate-700 rounded-lg transition"
-                    title="Edit Sales Executive"
-                  >
-                    <Edit3 className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(exec.id, exec.fullName)}
-                    className="p-2 text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-[#F8F9FA] dark:hover:bg-slate-700 rounded-lg transition"
-                    title="Delete Staff"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         /* Table View */
@@ -660,6 +767,178 @@ export const SalesExecutivesPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      {/* MODAL: VERIFY & START SALES PERSON TRIP                                */}
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      {tripToStart && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[999999] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700 space-y-4 animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-2xl">
+                  <Play className="w-6 h-6 fill-current" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base text-slate-900 dark:text-white">
+                    Verify & Start Sales Person Trip
+                  </h3>
+                  <p className="text-xs text-slate-400 font-mono">Trip #{tripToStart.tripNumber}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setTripToStart(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2.5 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-medium">Route:</span>
+                <strong className="text-slate-900 dark:text-white font-bold">{tripToStart.routeName || 'Standard Route'}</strong>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-medium">Sales Executive:</span>
+                <strong className="text-indigo-600 font-bold">{tripToStart.salesPersonName || 'Executive'}</strong>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-medium">Driver & Vehicle:</span>
+                <strong className="text-slate-800 dark:text-slate-200 font-bold">{tripToStart.driverName || 'Driver'} • {tripToStart.vehicleNumber || 'Van'}</strong>
+              </div>
+              <div className="flex justify-between items-center pt-2 border-t border-slate-200 dark:border-slate-700 font-mono">
+                <span className="text-slate-500 font-bold">Loaded Stock on Truck:</span>
+                <span className="text-purple-600 font-black text-sm">{tripToStart.totalLoadedQuantity || 0} Pkts</span>
+              </div>
+            </div>
+
+            <label className="flex items-start gap-2.5 p-3 bg-emerald-50 dark:bg-emerald-950/30 rounded-2xl border border-emerald-200 dark:border-emerald-800 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={startVerificationChecked}
+                onChange={e => setStartVerificationChecked(e.target.checked)}
+                className="mt-0.5 w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
+              />
+              <span className="text-xs text-emerald-900 dark:text-emerald-200 leading-snug">
+                I verify that the vehicle is inspected, stock is physically loaded, and the sales team is departing on this route now.
+              </span>
+            </label>
+
+            <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100 dark:border-slate-700">
+              <button
+                type="button"
+                onClick={() => setTripToStart(null)}
+                disabled={isStartingTrip}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleStartTripConfirmed}
+                disabled={!startVerificationChecked || isStartingTrip}
+                className="px-5 py-2.5 text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition flex items-center gap-2 shadow-xs cursor-pointer disabled:opacity-50 active:scale-95"
+              >
+                {isStartingTrip ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" /> Starting Trip...
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4 fill-current" /> Confirm & Start Trip Now
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      {/* MODAL: VERIFY & END SALES PERSON TRIP (RECONCILIATION)                 */}
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      {tripToEnd && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[999999] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700 space-y-4 animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 rounded-2xl">
+                  <CheckCircle2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base text-slate-900 dark:text-white">
+                    Verify & End Sales Person Trip
+                  </h3>
+                  <p className="text-xs text-slate-400 font-mono">Trip #{tripToEnd.tripNumber}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setTripToEnd(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2.5 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-medium">Route:</span>
+                <strong className="text-slate-900 dark:text-white font-bold">{tripToEnd.routeName || 'Standard Route'}</strong>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-medium">Sales Executive:</span>
+                <strong className="text-indigo-600 font-bold">{tripToEnd.salesPersonName || 'Executive'}</strong>
+              </div>
+              <div className="flex justify-between items-center font-mono">
+                <span className="text-slate-500 font-bold">Total Stock Loaded:</span>
+                <span className="text-purple-600 font-black">{tripToEnd.totalLoadedQuantity || 0} Pkts</span>
+              </div>
+            </div>
+
+            <label className="flex items-start gap-2.5 p-3 bg-purple-50 dark:bg-purple-950/30 rounded-2xl border border-purple-200 dark:border-purple-800 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={endVerificationChecked}
+                onChange={e => setEndVerificationChecked(e.target.checked)}
+                className="mt-0.5 w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500"
+              />
+              <span className="text-xs text-purple-900 dark:text-purple-200 leading-snug">
+                I verify that all customer invoices, collected cash/UPI, and remaining truck bread returns have been reconciled for this trip.
+              </span>
+            </label>
+
+            <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100 dark:border-slate-700">
+              <button
+                type="button"
+                onClick={() => setTripToEnd(null)}
+                disabled={isEndingTrip}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleEndTripConfirmed}
+                disabled={!endVerificationChecked || isEndingTrip}
+                className="px-5 py-2.5 text-xs font-black bg-purple-600 hover:bg-purple-700 text-white rounded-xl transition flex items-center gap-2 shadow-xs cursor-pointer disabled:opacity-50 active:scale-95"
+              >
+                {isEndingTrip ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" /> Ending Trip...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4" /> Confirm & End Trip Now
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
+export default SalesExecutivesPage;

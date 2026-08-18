@@ -531,26 +531,53 @@ export const ProductionPage: React.FC = () => {
     return 'STAGE_1_PREP_BAKE_COOL';
   };
 
+  // Live real-time ticker updating every 1 second for active production stages
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const formatTimestamp = (dateStr?: string) => {
     if (!dateStr) return '—';
     try {
       const d = new Date(dateStr);
-      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) + ', ' + d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }) + ', ' + d.toLocaleDateString([], { month: 'short', day: 'numeric' });
     } catch {
       return dateStr;
     }
   };
 
-  const getStageDuration = (startStr?: string, endStr?: string) => {
+  const formatShortTime = (dateStr?: string) => {
+    if (!dateStr) return '—';
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const getStageDuration = (startStr?: string, endStr?: string, isRunning?: boolean) => {
     if (!startStr) return null;
     try {
       const start = new Date(startStr).getTime();
-      const end = endStr ? new Date(endStr).getTime() : Date.now();
-      const diffMins = Math.max(1, Math.round((end - start) / (1000 * 60)));
-      const hrs = Math.floor(diffMins / 60);
-      const mins = diffMins % 60;
-      if (hrs > 0) return `${hrs}h ${mins}m`;
-      return `${mins} mins`;
+      const end = endStr ? new Date(endStr).getTime() : now;
+      const diffSecs = Math.max(0, Math.floor((end - start) / 1000));
+      const hrs = Math.floor(diffSecs / 3600);
+      const mins = Math.floor((diffSecs % 3600) / 60);
+      const secs = diffSecs % 60;
+
+      let timeStr = '';
+      if (hrs > 0) {
+        timeStr = `${hrs}h ${mins}m ${secs}s`;
+      } else if (mins > 0) {
+        timeStr = `${mins}m ${secs < 10 ? '0' : ''}${secs}s`;
+      } else {
+        timeStr = `${secs}s`;
+      }
+
+      return timeStr;
     } catch {
       return null;
     }
@@ -1355,9 +1382,14 @@ export const ProductionPage: React.FC = () => {
                       const isStage3 = stage.stageNo === 3;
                       const isCompleted = stage.stageNo === 4;
 
-                      const stageStart = isStage1 ? run.stage1StartTime : isStage2 ? run.stage2StartTime : isStage3 ? run.stage3StartTime : run.startTime;
-                      const stageEnd = isStage1 ? run.stage1EndTime : isStage2 ? run.stage2EndTime : isStage3 ? run.stage3EndTime : run.endTime;
-                      const durationStr = getStageDuration(stageStart, stageEnd);
+                      const st1Duration = getStageDuration(run.stage1StartTime, run.stage1EndTime);
+                      const st2Duration = getStageDuration(run.stage2StartTime, run.stage2EndTime);
+                      const st3Duration = getStageDuration(run.stage3StartTime, run.stage3EndTime);
+                      const totalBatchDuration = getStageDuration(run.startTime, run.endTime);
+
+                      const isSt1Active = run.currentStage === 'STAGE_1_PREP_BAKE_COOL' && run.stage1StartTime && !run.stage1Completed;
+                      const isSt2Active = run.currentStage === 'STAGE_2_SLICE_PACK_STACK' && run.stage2StartTime && !run.stage2Completed;
+                      const isSt3Active = run.currentStage === 'STAGE_3_ROLL_PACKAGING' && run.stage3StartTime && !run.stage3Completed;
 
                       return (
                         <div
@@ -1380,21 +1412,20 @@ export const ProductionPage: React.FC = () => {
                               </h4>
                             </div>
 
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-300 font-mono">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-300 font-mono shrink-0">
                               {run.plannedQuantity} pcs
                             </span>
                           </div>
 
-                          {/* 4-Step Interactive Production Stepper */}
+                          {/* 4-Step Interactive Production Stepper (Sequential One After Another) */}
                           <div className="flex items-center justify-between gap-1 p-1 bg-slate-100 dark:bg-slate-900 rounded-xl text-[9px] font-bold">
                             {[
-                              { no: 1, label: '1. Baking', stage: 'STAGE_1_PREP_BAKE_COOL' },
-                              { no: 2, label: '2. Slicing', stage: 'STAGE_2_SLICE_PACK_STACK' },
-                              { no: 3, label: '3. Packaging', stage: 'STAGE_3_ROLL_PACKAGING' },
-                              { no: 4, label: '4. QC / WH', stage: 'STAGE_COMPLETED' }
+                              { no: 1, label: '1. Baking', stage: 'STAGE_1_PREP_BAKE_COOL', done: run.stage1Completed, active: isSt1Active },
+                              { no: 2, label: '2. Slicing', stage: 'STAGE_2_SLICE_PACK_STACK', done: run.stage2Completed, active: isSt2Active },
+                              { no: 3, label: '3. Packaging', stage: 'STAGE_3_ROLL_PACKAGING', done: run.stage3Completed, active: isSt3Active },
+                              { no: 4, label: '4. QC / WH', stage: 'STAGE_COMPLETED', done: run.status === 'COMPLETED', active: run.currentStage === 'STAGE_COMPLETED' }
                             ].map(st => {
                               const isCurrent = run.currentStage === st.stage;
-                              const isPast = (st.no === 1 && run.stage1Completed) || (st.no === 2 && run.stage2Completed) || (st.no === 3 && run.stage3Completed) || (st.no === 4 && run.status === 'COMPLETED');
                               return (
                                 <button
                                   key={st.no}
@@ -1402,59 +1433,108 @@ export const ProductionPage: React.FC = () => {
                                   onClick={() => handleDirectStageJump(run, st.no)}
                                   className={`flex-1 py-1 rounded-lg transition text-center cursor-pointer ${
                                     isCurrent
-                                      ? 'bg-amber-500 text-white font-black shadow-xs'
-                                      : isPast
+                                      ? 'bg-amber-500 text-white font-black shadow-xs ring-1 ring-amber-400'
+                                      : st.done
                                       ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 font-bold'
                                       : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
                                   }`}
-                                  title={`Click to switch to Stage ${st.no}`}
+                                  title={`Stage ${st.no}: ${st.label}`}
                                 >
-                                  {st.label}
+                                  {st.done ? `✓ ${st.no}` : st.label}
                                 </button>
                               );
                             })}
                           </div>
 
-                          {/* 3-Stage Start & Stop Timestamps Box */}
-                          <div className="p-2.5 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200/60 dark:border-slate-700/60 space-y-1.5 text-[10px]">
-                            <div className="flex items-center justify-between text-slate-500 font-bold">
+                          {/* ─── 3-STAGE START & STOP TIMINGS BREAKDOWN ───────────────── */}
+                          <div className="p-3 bg-slate-50/80 dark:bg-slate-900/60 rounded-xl border border-slate-200/80 dark:border-slate-700/80 space-y-2 text-[10px]">
+                            <div className="flex items-center justify-between text-slate-600 dark:text-slate-400 font-extrabold pb-1.5 border-b border-slate-200/60 dark:border-slate-700/60">
                               <span className="flex items-center gap-1">
-                                <Clock className="w-3 h-3 text-slate-400" />
-                                Stage {stage.stageNo} Timestamps:
+                                <Timer className="w-3.5 h-3.5 text-amber-500" />
+                                3-Stage Timing Breakdown:
                               </span>
-                              {durationStr && (
-                                <span className="font-mono text-emerald-600 dark:text-emerald-400 font-black">
-                                  ⏱️ {durationStr}
+                              {totalBatchDuration && (
+                                <span className="font-mono text-[9px] px-1.5 py-0.2 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-black">
+                                  Total: {totalBatchDuration}
                                 </span>
                               )}
                             </div>
 
-                            <div className="grid grid-cols-2 gap-1 text-[9px] pt-1 border-t border-slate-200/40 dark:border-slate-700/40 font-mono">
-                              <div>
-                                <span className="text-slate-400">Start:</span>{' '}
-                                <strong className="text-slate-700 dark:text-slate-300">{formatTimestamp(stageStart)}</strong>
+                            {/* Stage 1: Prep & Baking Row */}
+                            <div className="space-y-0.5">
+                              <div className="flex items-center justify-between font-medium">
+                                <span className="flex items-center gap-1 text-amber-800 dark:text-amber-300 font-bold">
+                                  <Flame className="w-3 h-3 text-amber-500" /> 1. Baking:
+                                </span>
+                                {run.stage1Completed ? (
+                                  <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                                    ✓ {st1Duration}
+                                  </span>
+                                ) : isSt1Active ? (
+                                  <span className="font-mono font-black text-amber-600 dark:text-amber-400 animate-pulse">
+                                    ⏱️ {st1Duration} (Running)
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-400 text-[9px]">⏳ Pending</span>
+                                )}
                               </div>
-                              <div>
-                                <span className="text-slate-400">Stop:</span>{' '}
-                                <strong className="text-slate-700 dark:text-slate-300">{formatTimestamp(stageEnd)}</strong>
+                              <div className="grid grid-cols-2 text-[9px] text-slate-500 dark:text-slate-400 font-mono pl-4">
+                                <span>Start: {formatShortTime(run.stage1StartTime)}</span>
+                                <span>Stop: {formatShortTime(run.stage1EndTime)}</span>
+                              </div>
+                            </div>
+
+                            {/* Stage 2: Slicing & Stacker Row */}
+                            <div className="space-y-0.5 pt-1 border-t border-slate-200/40 dark:border-slate-700/40">
+                              <div className="flex items-center justify-between font-medium">
+                                <span className="flex items-center gap-1 text-blue-800 dark:text-blue-300 font-bold">
+                                  <Boxes className="w-3 h-3 text-blue-500" /> 2. Slicing & Stacker:
+                                </span>
+                                {run.stage2Completed ? (
+                                  <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                                    ✓ {st2Duration}
+                                  </span>
+                                ) : isSt2Active ? (
+                                  <span className="font-mono font-black text-blue-600 dark:text-blue-400 animate-pulse">
+                                    ⏱️ {st2Duration} (Running)
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-400 text-[9px]">⏳ Pending</span>
+                                )}
+                              </div>
+                              <div className="grid grid-cols-2 text-[9px] text-slate-500 dark:text-slate-400 font-mono pl-4">
+                                <span>Start: {formatShortTime(run.stage2StartTime)}</span>
+                                <span>Stop: {formatShortTime(run.stage2EndTime)}</span>
+                              </div>
+                            </div>
+
+                            {/* Stage 3: Roll Packing & Packaging Module Row */}
+                            <div className="space-y-0.5 pt-1 border-t border-slate-200/40 dark:border-slate-700/40">
+                              <div className="flex items-center justify-between font-medium">
+                                <span className="flex items-center gap-1 text-purple-800 dark:text-purple-300 font-bold">
+                                  <PackageCheck className="w-3 h-3 text-purple-500" /> 3. Packaging Module:
+                                </span>
+                                {run.stage3Completed ? (
+                                  <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                                    ✓ {st3Duration}
+                                  </span>
+                                ) : isSt3Active ? (
+                                  <span className="font-mono font-black text-purple-600 dark:text-purple-400 animate-pulse">
+                                    ⏱️ {st3Duration} (Running)
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-400 text-[9px]">⏳ Pending</span>
+                                )}
+                              </div>
+                              <div className="grid grid-cols-2 text-[9px] text-slate-500 dark:text-slate-400 font-mono pl-4">
+                                <span>Start: {formatShortTime(run.stage3StartTime)}</span>
+                                <span>Stop: {formatShortTime(run.stage3EndTime)}</span>
                               </div>
                             </div>
                           </div>
 
-                          {/* Stage Specific Sub-Steps Visual */}
-                          <div className="space-y-1">
-                            <span className="text-[10px] font-bold text-slate-400 block">Current Stage Steps:</span>
-                            <div className="grid grid-cols-2 gap-1">
-                              {stage.subSteps.map((step, idx) => (
-                                <div key={idx} className="p-1.5 bg-slate-100/70 dark:bg-slate-700/50 rounded-lg text-[9px]">
-                                  <p className="font-bold text-slate-800 dark:text-slate-200 truncate">{step.name}</p>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-
-                          {/* Stage 3 Packaging Summary Card (If in Stage 3 or Completed) */}
-                          {(isStage3 || isCompleted) && (
+                          {/* Stage 3 Packaging Breakdown Summary (If in Stage 3 or Completed) */}
+                          {(isStage3 || isCompleted || (run.boxCount ?? 0) > 0 || (run.bundleCount ?? 0) > 0 || (run.coverCount ?? 0) > 0) && (
                             <div className="p-2.5 bg-purple-50 dark:bg-purple-950/40 rounded-xl border border-purple-200 dark:border-purple-800/60 text-[10px] space-y-1.5">
                               <div className="flex items-center justify-between font-bold text-purple-900 dark:text-purple-300">
                                 <span className="flex items-center gap-1">
@@ -1470,7 +1550,7 @@ export const ProductionPage: React.FC = () => {
                                 {run.boxCount ? (
                                   <div className="bg-white dark:bg-slate-900 p-1 rounded border border-purple-100 dark:border-purple-900">
                                     <span className="text-slate-400 block">Boxes</span>
-                                    <strong className="text-purple-700 dark:text-purple-300">{run.boxCount} ({run.unitsPerBox}/box)</strong>
+                                    <strong className="text-purple-700 dark:text-purple-300">{run.boxCount} ({run.unitsPerBox}/bx)</strong>
                                   </div>
                                 ) : null}
 
@@ -1503,88 +1583,96 @@ export const ProductionPage: React.FC = () => {
                             </div>
                           )}
 
-                          {/* Stage Action Buttons with Next Stage Flow */}
-                          <div className="pt-2 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between gap-1.5">
-                            {isStage1 && (
-                              <div className="flex items-center gap-1.5 w-full">
-                                {!run.stage1StartTime ? (
+                          {/* Dossier Quick View & Sequential Action Buttons */}
+                          <div className="pt-2 border-t border-slate-100 dark:border-slate-700/60 space-y-1.5">
+                            <div className="flex items-center justify-between gap-1.5">
+                              <button
+                                onClick={() => setTravelerTicketRun(run)}
+                                className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700/70 text-slate-700 dark:text-slate-200 rounded-xl text-[11px] font-bold transition flex items-center gap-1 cursor-pointer shrink-0"
+                                title="View Batch Dossier & All Timestamps"
+                              >
+                                <FileText className="w-3.5 h-3.5 text-slate-500" />
+                                <span>Dossier</span>
+                              </button>
+
+                              {/* Stage 1 Actions */}
+                              {isStage1 && (
+                                <div className="flex-1 flex items-center gap-1">
+                                  {!run.stage1StartTime ? (
+                                    <button
+                                      onClick={() => handleStartStage(run, 1)}
+                                      className="flex-1 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
+                                    >
+                                      <Play className="w-3.5 h-3.5" /> Start Stage 1 (Baking)
+                                    </button>
+                                  ) : (
+                                    <button
+                                      onClick={() => handleAdvanceToNextStage(run)}
+                                      className="flex-1 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black transition flex items-center justify-center gap-1 shadow-xs cursor-pointer active:scale-95"
+                                    >
+                                      <span>Stop Stage 1 ➔ Start Stage 2</span>
+                                      <ChevronRight className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Stage 2 Actions */}
+                              {isStage2 && (
+                                <div className="flex-1 flex items-center gap-1">
+                                  {!run.stage2StartTime ? (
+                                    <button
+                                      onClick={() => handleStartStage(run, 2)}
+                                      className="flex-1 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
+                                    >
+                                      <Play className="w-3.5 h-3.5" /> Start Slicing
+                                    </button>
+                                  ) : (
+                                    <button
+                                      onClick={() => handleAdvanceToNextStage(run)}
+                                      className="flex-1 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-black transition flex items-center justify-center gap-1 shadow-xs cursor-pointer active:scale-95"
+                                    >
+                                      <span>Stop Stage 2 ➔ Start Stage 3</span>
+                                      <ChevronRight className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Stage 3 Actions */}
+                              {isStage3 && (
+                                <div className="flex-1 flex items-center gap-1">
                                   <button
-                                    onClick={() => handleStartStage(run, 1)}
-                                    className="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
+                                    onClick={() => handleOpenPackagingModal(run)}
+                                    className="py-1.5 px-2 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 rounded-xl text-[10px] font-bold transition flex items-center justify-center gap-1 border border-purple-200 dark:border-purple-800 cursor-pointer"
                                   >
-                                    <Play className="w-3.5 h-3.5" /> Start Stage 1 (Baking)
+                                    <Boxes className="w-3.5 h-3.5 text-purple-600" /> Packaging
                                   </button>
-                                ) : (
                                   <button
                                     onClick={() => handleAdvanceToNextStage(run)}
-                                    className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
+                                    className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition flex items-center justify-center gap-1 shadow-xs cursor-pointer active:scale-95"
+                                    title="Stop Stage 3 & QC Release"
                                   >
-                                    <span>Advance to Stage 2: Slicing & Stacker</span>
-                                    <ChevronRight className="w-3.5 h-3.5" />
+                                    <ShieldCheck className="w-3.5 h-3.5" /> Stop Stage 3 ➔ QC
                                   </button>
-                                )}
-                              </div>
-                            )}
+                                </div>
+                              )}
 
-                            {isStage2 && (
-                              <div className="flex items-center gap-1.5 w-full">
-                                {!run.stage2StartTime ? (
+                              {/* Stage 4 / Completed Actions */}
+                              {isCompleted && (
+                                <div className="flex-1 flex items-center gap-1">
+                                  <span className="flex-1 py-1 text-center text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800">
+                                    ✓ In Central Inventory
+                                  </span>
                                   <button
-                                    onClick={() => handleStartStage(run, 2)}
-                                    className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
+                                    onClick={() => navigate('/inventory')}
+                                    className="px-2.5 py-1 text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 rounded-xl transition cursor-pointer shadow-2xs"
                                   >
-                                    <Play className="w-3.5 h-3.5" /> Start Slicing
+                                    Stock ➔
                                   </button>
-                                ) : (
-                                  <button
-                                    onClick={() => handleAdvanceToNextStage(run)}
-                                    className="flex-1 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
-                                  >
-                                    <span>Advance to Stage 3: Bulk Packaging</span>
-                                    <ChevronRight className="w-3.5 h-3.5" />
-                                  </button>
-                                )}
-                              </div>
-                            )}
-
-                            {isStage3 && (
-                              <div className="flex items-center gap-1.5 w-full">
-                                <button
-                                  onClick={() => handleOpenPackagingModal(run)}
-                                  className="flex-1 py-2 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 rounded-xl text-[11px] font-bold transition flex items-center justify-center gap-1 border border-purple-200 dark:border-purple-800 cursor-pointer shadow-2xs"
-                                >
-                                  <Boxes className="w-3.5 h-3.5 text-purple-600" /> Boxes & Bundles
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setCompleteRunItem(run);
-                                    setCompleteForm(prev => ({
-                                      ...prev,
-                                      actualProduced: run.actualProducedQuantity || run.plannedQuantity || 1000
-                                    }));
-                                  }}
-                                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
-                                  title="Complete & Handover to Warehouse"
-                                >
-                                  <ShieldCheck className="w-3.5 h-3.5" /> QC & WH Handover
-                                </button>
-                              </div>
-                            )}
-
-                            {isCompleted && (
-                              <div className="flex items-center gap-1.5 w-full">
-                                <span className="flex-1 py-1.5 text-center text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800">
-                                  ✓ Deposited to Warehouse
-                                </span>
-                                <button
-                                  onClick={() => navigate('/inventory')}
-                                  className="px-3 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 rounded-xl transition cursor-pointer shadow-2xs"
-                                  title="View in Central Inventory"
-                                >
-                                  View Stock ➔
-                                </button>
-                              </div>
-                            )}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
                       );
@@ -1597,7 +1685,7 @@ export const ProductionPage: React.FC = () => {
         </div>
       )}
 
-      {/* ─── TABLE GRID VIEW ─────────────────────────────────────────────── */}
+      {/* ─── TABLE GRID VIEW (FULL 3-STAGE TIMING AUDIT MATRIX) ────────────── */}
       {viewMode === 'grid' && (
         <div className="bg-white dark:bg-slate-800 rounded-3xl border border-[#F0F2F5] dark:border-slate-700 shadow-2xs overflow-hidden">
           <div className="overflow-x-auto">
@@ -1607,61 +1695,149 @@ export const ProductionPage: React.FC = () => {
                   <th className="py-3.5 px-4">Batch & Run#</th>
                   <th className="py-3.5 px-4">Product Name</th>
                   <th className="py-3.5 px-4">Current Stage</th>
-                  <th className="py-3.5 px-4 text-center">Stage 1 (Prep & Bake)</th>
-                  <th className="py-3.5 px-4 text-center">Stage 2 (Slicing & Stacker)</th>
-                  <th className="py-3.5 px-4 text-center">Stage 3 (Packaging Specs)</th>
-                  <th className="py-3.5 px-4 text-center">Actions</th>
+                  <th className="py-3.5 px-4">Stage 1: Prep & Baking</th>
+                  <th className="py-3.5 px-4">Stage 2: Slicing & Stacker</th>
+                  <th className="py-3.5 px-4">Stage 3: Packaging Module</th>
+                  <th className="py-3.5 px-4 text-center">Total Lead Time</th>
+                  <th className="py-3.5 px-4 text-center">Next Sequential Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60 font-medium text-slate-700 dark:text-slate-200">
-                {filteredRuns.map(run => (
-                  <tr key={run.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-700/40 transition">
-                    <td className="py-3 px-4">
-                      <p className="font-mono font-extrabold text-slate-900 dark:text-white">{run.batchNumber}</p>
-                      <p className="font-mono text-[10px] text-slate-400">{run.runNumber}</p>
-                    </td>
-                    <td className="py-3 px-4 font-bold text-slate-900 dark:text-white">
-                      {run.productName}
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
-                        {run.currentStage}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-center font-mono text-[10px]">
-                      {run.stage1StartTime ? (
-                        <span className="text-emerald-600 font-bold">
-                          ✓ {getStageDuration(run.stage1StartTime, run.stage1EndTime) || 'In Progress'}
+                {filteredRuns.map(run => {
+                  const st1Duration = getStageDuration(run.stage1StartTime, run.stage1EndTime);
+                  const st2Duration = getStageDuration(run.stage2StartTime, run.stage2EndTime);
+                  const st3Duration = getStageDuration(run.stage3StartTime, run.stage3EndTime);
+                  const totalBatchDuration = getStageDuration(run.startTime, run.endTime);
+
+                  return (
+                    <tr key={run.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-700/40 transition">
+                      <td className="py-3 px-4">
+                        <button
+                          onClick={() => setTravelerTicketRun(run)}
+                          className="text-left group cursor-pointer"
+                        >
+                          <p className="font-mono font-extrabold text-slate-900 dark:text-white group-hover:text-amber-600 flex items-center gap-1">
+                            {run.batchNumber}
+                            <FileText className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition" />
+                          </p>
+                          <p className="font-mono text-[10px] text-slate-400">{run.runNumber}</p>
+                        </button>
+                      </td>
+                      <td className="py-3 px-4">
+                        <p className="font-bold text-slate-900 dark:text-white">{run.productName}</p>
+                        <p className="text-[10px] text-slate-400">{run.plannedQuantity} pcs • {run.shift}</p>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase font-mono ${
+                          run.status === 'COMPLETED'
+                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
+                            : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
+                        }`}>
+                          {run.currentStage}
                         </span>
-                      ) : '—'}
-                    </td>
-                    <td className="py-3 px-4 text-center font-mono text-[10px]">
-                      {run.stage2StartTime ? (
-                        <span className="text-blue-600 font-bold">
-                          ✓ {getStageDuration(run.stage2StartTime, run.stage2EndTime) || 'In Progress'}
-                        </span>
-                      ) : '—'}
-                    </td>
-                    <td className="py-3 px-4 text-center font-mono text-[10px]">
-                      {run.boxCount || run.bundleCount || run.coverCount || run.tinCount ? (
-                        <span className="text-purple-600 font-bold">
-                          {run.boxCount ? `${run.boxCount} Boxes ` : ''}
-                          {run.bundleCount ? `${run.bundleCount} Bundles ` : ''}
-                          {run.coverCount ? `${run.coverCount} Covers ` : ''}
-                          {run.tinCount ? `${run.tinCount} Tins ` : ''}
-                        </span>
-                      ) : '—'}
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <button
-                        onClick={() => handleOpenPackagingModal(run)}
-                        className="px-2.5 py-1 bg-purple-50 text-purple-700 rounded-lg text-xs font-bold hover:bg-purple-100"
-                      >
-                        Packaging
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+
+                      {/* Stage 1 Column */}
+                      <td className="py-3 px-4 text-[11px] font-mono">
+                        {run.stage1StartTime ? (
+                          <div>
+                            <span className={`font-bold ${run.stage1Completed ? 'text-emerald-600' : 'text-amber-600 animate-pulse'}`}>
+                              {run.stage1Completed ? `✓ ${st1Duration}` : `⏱️ ${st1Duration}`}
+                            </span>
+                            <p className="text-[9px] text-slate-400">
+                              {formatShortTime(run.stage1StartTime)} ➔ {formatShortTime(run.stage1EndTime)}
+                            </p>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400">⏳ Pending</span>
+                        )}
+                      </td>
+
+                      {/* Stage 2 Column */}
+                      <td className="py-3 px-4 text-[11px] font-mono">
+                        {run.stage2StartTime ? (
+                          <div>
+                            <span className={`font-bold ${run.stage2Completed ? 'text-emerald-600' : 'text-blue-600 animate-pulse'}`}>
+                              {run.stage2Completed ? `✓ ${st2Duration}` : `⏱️ ${st2Duration}`}
+                            </span>
+                            <p className="text-[9px] text-slate-400">
+                              {formatShortTime(run.stage2StartTime)} ➔ {formatShortTime(run.stage2EndTime)}
+                            </p>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400">⏳ Pending</span>
+                        )}
+                      </td>
+
+                      {/* Stage 3 Column */}
+                      <td className="py-3 px-4 text-[11px] font-mono">
+                        {run.stage3StartTime ? (
+                          <div>
+                            <span className={`font-bold ${run.stage3Completed ? 'text-emerald-600' : 'text-purple-600 animate-pulse'}`}>
+                              {run.stage3Completed ? `✓ ${st3Duration}` : `⏱️ ${st3Duration}`}
+                            </span>
+                            <p className="text-[9px] text-slate-400">
+                              {formatShortTime(run.stage3StartTime)} ➔ {formatShortTime(run.stage3EndTime)}
+                            </p>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400">⏳ Pending</span>
+                        )}
+                      </td>
+
+                      {/* Total Duration Column */}
+                      <td className="py-3 px-4 text-center font-mono font-bold text-slate-700 dark:text-slate-300">
+                        {totalBatchDuration || '—'}
+                      </td>
+
+                      {/* Sequential Action Button Column */}
+                      <td className="py-3 px-4 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          {run.status === 'PLANNED' && (
+                            <button
+                              onClick={() => handleStartStage(run, 1)}
+                              className="px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold"
+                            >
+                              ▶ Start Stage 1
+                            </button>
+                          )}
+                          {run.currentStage === 'STAGE_1_PREP_BAKE_COOL' && run.stage1StartTime && (
+                            <button
+                              onClick={() => handleAdvanceToNextStage(run)}
+                              className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold"
+                            >
+                              Stop 1 ➔ Start 2
+                            </button>
+                          )}
+                          {run.currentStage === 'STAGE_2_SLICE_PACK_STACK' && run.stage2StartTime && (
+                            <button
+                              onClick={() => handleAdvanceToNextStage(run)}
+                              className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold"
+                            >
+                              Stop 2 ➔ Start 3
+                            </button>
+                          )}
+                          {run.currentStage === 'STAGE_3_ROLL_PACKAGING' && run.stage3StartTime && (
+                            <button
+                              onClick={() => handleAdvanceToNextStage(run)}
+                              className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold"
+                            >
+                              Stop 3 ➔ QC & Handover
+                            </button>
+                          )}
+                          {run.status === 'COMPLETED' && (
+                            <button
+                              onClick={() => setTravelerTicketRun(run)}
+                              className="px-2.5 py-1 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold"
+                            >
+                              📄 Dossier
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -1759,8 +1935,13 @@ export const ProductionPage: React.FC = () => {
                     <input
                       type="number"
                       min="0"
-                      value={packagingForm.boxCount}
-                      onChange={e => setPackagingForm(prev => ({ ...prev, boxCount: parseInt(e.target.value, 10) || 0 }))}
+                      placeholder="0"
+                      value={packagingForm.boxCount === 0 ? '' : packagingForm.boxCount}
+                      onFocus={e => e.target.select()}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setPackagingForm(prev => ({ ...prev, boxCount: val === '' ? 0 : Math.max(0, parseInt(val, 10) || 0) }));
+                      }}
                       className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-900 dark:text-white"
                     />
                   </div>
@@ -1771,8 +1952,13 @@ export const ProductionPage: React.FC = () => {
                     <input
                       type="number"
                       min="1"
-                      value={packagingForm.unitsPerBox}
-                      onChange={e => setPackagingForm(prev => ({ ...prev, unitsPerBox: parseInt(e.target.value, 10) || 24 }))}
+                      placeholder="24"
+                      value={packagingForm.unitsPerBox === 0 ? '' : packagingForm.unitsPerBox}
+                      onFocus={e => e.target.select()}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setPackagingForm(prev => ({ ...prev, unitsPerBox: val === '' ? 0 : Math.max(0, parseInt(val, 10) || 0) }));
+                      }}
                       className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-900 dark:text-white"
                     />
                   </div>
@@ -1799,8 +1985,13 @@ export const ProductionPage: React.FC = () => {
                     <input
                       type="number"
                       min="0"
-                      value={packagingForm.bundleCount}
-                      onChange={e => setPackagingForm(prev => ({ ...prev, bundleCount: parseInt(e.target.value, 10) || 0 }))}
+                      placeholder="0"
+                      value={packagingForm.bundleCount === 0 ? '' : packagingForm.bundleCount}
+                      onFocus={e => e.target.select()}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setPackagingForm(prev => ({ ...prev, bundleCount: val === '' ? 0 : Math.max(0, parseInt(val, 10) || 0) }));
+                      }}
                       className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-900 dark:text-white"
                     />
                   </div>
@@ -1811,8 +2002,13 @@ export const ProductionPage: React.FC = () => {
                     <input
                       type="number"
                       min="1"
-                      value={packagingForm.unitsPerBundle}
-                      onChange={e => setPackagingForm(prev => ({ ...prev, unitsPerBundle: parseInt(e.target.value, 10) || 12 }))}
+                      placeholder="12"
+                      value={packagingForm.unitsPerBundle === 0 ? '' : packagingForm.unitsPerBundle}
+                      onFocus={e => e.target.select()}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setPackagingForm(prev => ({ ...prev, unitsPerBundle: val === '' ? 0 : Math.max(0, parseInt(val, 10) || 0) }));
+                      }}
                       className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-900 dark:text-white"
                     />
                   </div>
@@ -1836,8 +2032,13 @@ export const ProductionPage: React.FC = () => {
                       <input
                         type="number"
                         min="0"
-                        value={packagingForm.coverCount}
-                        onChange={e => setPackagingForm(prev => ({ ...prev, coverCount: parseInt(e.target.value, 10) || 0 }))}
+                        placeholder="0"
+                        value={packagingForm.coverCount === 0 ? '' : packagingForm.coverCount}
+                        onFocus={e => e.target.select()}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setPackagingForm(prev => ({ ...prev, coverCount: val === '' ? 0 : Math.max(0, parseInt(val, 10) || 0) }));
+                        }}
                         className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold"
                       />
                     </div>
@@ -1846,8 +2047,13 @@ export const ProductionPage: React.FC = () => {
                       <input
                         type="number"
                         min="1"
-                        value={packagingForm.unitsPerCover}
-                        onChange={e => setPackagingForm(prev => ({ ...prev, unitsPerCover: parseInt(e.target.value, 10) || 63 }))}
+                        placeholder="63"
+                        value={packagingForm.unitsPerCover === 0 ? '' : packagingForm.unitsPerCover}
+                        onFocus={e => e.target.select()}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setPackagingForm(prev => ({ ...prev, unitsPerCover: val === '' ? 0 : Math.max(0, parseInt(val, 10) || 0) }));
+                        }}
                         className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold"
                       />
                     </div>
@@ -1868,8 +2074,13 @@ export const ProductionPage: React.FC = () => {
                     <input
                       type="number"
                       min="0"
-                      value={packagingForm.tinCount}
-                      onChange={e => setPackagingForm(prev => ({ ...prev, tinCount: parseInt(e.target.value, 10) || 0 }))}
+                      placeholder="0"
+                      value={packagingForm.tinCount === 0 ? '' : packagingForm.tinCount}
+                      onFocus={e => e.target.select()}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setPackagingForm(prev => ({ ...prev, tinCount: val === '' ? 0 : Math.max(0, parseInt(val, 10) || 0) }));
+                      }}
                       className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold"
                     />
                   </div>
@@ -1884,8 +2095,13 @@ export const ProductionPage: React.FC = () => {
                 <input
                   type="number"
                   min="0"
-                  value={packagingForm.looseUnits}
-                  onChange={e => setPackagingForm(prev => ({ ...prev, looseUnits: parseInt(e.target.value, 10) || 0 }))}
+                  placeholder="0"
+                  value={packagingForm.looseUnits === 0 ? '' : packagingForm.looseUnits}
+                  onFocus={e => e.target.select()}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setPackagingForm(prev => ({ ...prev, looseUnits: val === '' ? 0 : Math.max(0, parseInt(val, 10) || 0) }));
+                  }}
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-900 dark:text-white"
                 />
               </div>
@@ -1963,88 +2179,170 @@ export const ProductionPage: React.FC = () => {
               </button>
             </div>
 
-            <form
-              onSubmit={async e => {
-                e.preventDefault();
-                try {
-                  await productionApi.completeRun(completeRunItem.id, completeForm);
-                  showToast(`🎉 Batch ${completeRunItem.batchNumber} deposited to Finished Goods Inventory!`);
-                  setCompleteRunItem(null);
-                  fetchData();
-                } catch (err: any) {
-                  showToast('Error completing batch: ' + (err.response?.data?.message || err.message));
-                }
-              }}
-              className="p-6 space-y-4"
-            >
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Good Loaves *
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    required
-                    value={completeForm.actualProduced}
-                    onChange={e => setCompleteForm(prev => ({ ...prev, actualProduced: parseInt(e.target.value, 10) || 0 }))}
-                    className="w-full bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-300 dark:border-emerald-700 rounded-xl px-3 py-2 text-xs font-mono font-bold text-emerald-700 dark:text-emerald-300"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Rejects
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={completeForm.rejectedQuantity}
-                    onChange={e => setCompleteForm(prev => ({ ...prev, rejectedQuantity: parseInt(e.target.value, 10) || 0 }))}
-                    className="w-full bg-rose-50 dark:bg-rose-950/30 border border-rose-300 dark:border-rose-700 rounded-xl px-3 py-2 text-xs font-mono font-bold text-rose-700 dark:text-rose-300"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Waste (kg)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={completeForm.wasteQuantity}
-                    onChange={e => setCompleteForm(prev => ({ ...prev, wasteQuantity: parseInt(e.target.value, 10) || 0 }))}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-900 dark:text-white"
-                  />
-                </div>
-              </div>
+            {(() => {
+              const grossPlanned = completeRunItem.plannedQuantity || 1000;
+              const rejected = completeForm.rejectedQuantity || 0;
+              const waste = completeForm.wasteQuantity || 0;
+              const netGoodLoaves = Math.max(0, grossPlanned - rejected - waste);
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  QC Inspector Name
-                </label>
-                <input
-                  type="text"
-                  value={completeForm.qcInspectorName}
-                  onChange={e => setCompleteForm(prev => ({ ...prev, qcInspectorName: e.target.value }))}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white"
-                />
-              </div>
+              return (
+                <form
+                  onSubmit={async e => {
+                    e.preventDefault();
+                    try {
+                      await productionApi.completeRun(completeRunItem.id, {
+                        ...completeForm,
+                        actualProduced: netGoodLoaves,
+                        rejectedQuantity: rejected,
+                        wasteQuantity: waste
+                      });
+                      showToast(`🎉 Batch ${completeRunItem.batchNumber} deposited ${netGoodLoaves} good loaves to Finished Goods Inventory!`);
+                      setCompleteRunItem(null);
+                      fetchData();
+                    } catch (err: any) {
+                      showToast('Error completing batch: ' + (err.response?.data?.message || err.message));
+                    }
+                  }}
+                  className="p-6 space-y-4"
+                >
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                        Planned Loaves
+                      </label>
+                      <div className="w-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                        <span>{grossPlanned}</span>
+                        <span className="text-[10px] text-slate-400">Target</span>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                        Rejects (Loaves)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="0"
+                        value={completeForm.rejectedQuantity === 0 ? '' : completeForm.rejectedQuantity}
+                        onFocus={e => e.target.select()}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setCompleteForm(prev => ({ ...prev, rejectedQuantity: val === '' ? 0 : Math.max(0, parseInt(val, 10) || 0) }));
+                        }}
+                        className="w-full bg-rose-50 dark:bg-rose-950/30 border border-rose-300 dark:border-rose-700 rounded-xl px-3 py-2 text-xs font-mono font-bold text-rose-700 dark:text-rose-300 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                        Waste (Kg / Units)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="0"
+                        value={completeForm.wasteQuantity === 0 ? '' : completeForm.wasteQuantity}
+                        onFocus={e => e.target.select()}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setCompleteForm(prev => ({ ...prev, wasteQuantity: val === '' ? 0 : Math.max(0, parseInt(val, 10) || 0) }));
+                        }}
+                        className="w-full bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700 rounded-xl px-3 py-2 text-xs font-mono font-bold text-amber-700 dark:text-amber-300 focus:outline-none"
+                      />
+                    </div>
+                  </div>
 
-              <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setCompleteRunItem(null)}
-                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 rounded-xl"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs"
-                >
-                  Confirm & Transfer to Finished Goods
-                </button>
-              </div>
-            </form>
+                  {/* 3-Stage Sequential Timing Audit Box */}
+                  <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-1.5 text-[11px]">
+                    <div className="flex items-center justify-between font-bold text-slate-700 dark:text-slate-300 pb-1 border-b border-slate-200 dark:border-slate-700">
+                      <span className="flex items-center gap-1.5">
+                        <Timer className="w-3.5 h-3.5 text-amber-500" />
+                        3-Stage Timing Audit Summary
+                      </span>
+                      <span className="font-mono text-emerald-600 font-bold">
+                        Lead Time: {getStageDuration(completeRunItem.startTime, completeRunItem.endTime) || getStageDuration(completeRunItem.startTime, undefined)}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 text-[10px] pt-0.5">
+                      <div className="bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-100 dark:border-slate-800">
+                        <span className="text-slate-400 block font-bold">1. Baking</span>
+                        <strong className="text-emerald-600 font-mono">
+                          {getStageDuration(completeRunItem.stage1StartTime, completeRunItem.stage1EndTime) || 'Done'}
+                        </strong>
+                        <p className="text-[9px] text-slate-400 font-mono mt-0.5">
+                          {formatShortTime(completeRunItem.stage1StartTime)} - {formatShortTime(completeRunItem.stage1EndTime)}
+                        </p>
+                      </div>
+
+                      <div className="bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-100 dark:border-slate-800">
+                        <span className="text-slate-400 block font-bold">2. Slicing</span>
+                        <strong className="text-blue-600 font-mono">
+                          {getStageDuration(completeRunItem.stage2StartTime, completeRunItem.stage2EndTime) || 'Done'}
+                        </strong>
+                        <p className="text-[9px] text-slate-400 font-mono mt-0.5">
+                          {formatShortTime(completeRunItem.stage2StartTime)} - {formatShortTime(completeRunItem.stage2EndTime)}
+                        </p>
+                      </div>
+
+                      <div className="bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-100 dark:border-slate-800">
+                        <span className="text-slate-400 block font-bold">3. Packaging</span>
+                        <strong className="text-purple-600 font-mono">
+                          {getStageDuration(completeRunItem.stage3StartTime, completeRunItem.stage3EndTime) || 'Done'}
+                        </strong>
+                        <p className="text-[9px] text-slate-400 font-mono mt-0.5">
+                          {formatShortTime(completeRunItem.stage3StartTime)} - {formatShortTime(completeRunItem.stage3EndTime)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Live Net Good Handover Calculation */}
+                  <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/40 rounded-2xl border border-emerald-200 dark:border-emerald-800/60 space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                        <Calculator className="w-3.5 h-3.5 text-emerald-600" />
+                        Net Usable Handover Count
+                      </span>
+                      <span className="font-mono font-black text-sm text-emerald-700 dark:text-emerald-300">
+                        {netGoodLoaves.toLocaleString()} Good Loaves
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-emerald-800/80 dark:text-emerald-400 leading-snug">
+                      Formula: <strong>{grossPlanned}</strong> (Planned) − <strong>{rejected}</strong> (Rejects) − <strong>{waste}</strong> (Waste) = <strong className="text-emerald-950 dark:text-white font-mono">{netGoodLoaves} loaves</strong> added to Central Finished Goods Inventory.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      QC Inspector Name
+                    </label>
+                    <input
+                      type="text"
+                      value={completeForm.qcInspectorName}
+                      onChange={e => setCompleteForm(prev => ({ ...prev, qcInspectorName: e.target.value }))}
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => setCompleteRunItem(null)}
+                      className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 rounded-xl cursor-pointer hover:bg-slate-200"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs cursor-pointer active:scale-95 flex items-center gap-1.5"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      Deposit {netGoodLoaves.toLocaleString()} Loaves to FGI
+                    </button>
+                  </div>
+                </form>
+              );
+            })()}
           </div>
         </div>
       )}
@@ -2101,8 +2399,13 @@ export const ProductionPage: React.FC = () => {
                     type="number"
                     min="100"
                     required
-                    value={planForm.plannedQuantity}
-                    onChange={e => handleProductOrQtyChange(planForm.productId, parseInt(e.target.value, 10) || 1000)}
+                    placeholder="1000"
+                    value={planForm.plannedQuantity === 0 ? '' : planForm.plannedQuantity}
+                    onFocus={e => e.target.select()}
+                    onChange={e => {
+                      const val = e.target.value;
+                      handleProductOrQtyChange(planForm.productId, val === '' ? 0 : parseInt(val, 10) || 0);
+                    }}
                     className="w-full bg-[#F8F9FA] dark:bg-slate-800 border border-[#E9ECEF] dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
                   />
                 </div>
@@ -2178,6 +2481,241 @@ export const ProductionPage: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════════════════ */}
+      {/* MODAL 4: BATCH TRAVELER TICKET & 3-STAGE TIMING AUDIT DOSSIER           */}
+      {/* ═══════════════════════════════════════════════════════════════════════ */}
+      {travelerTicketRun && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-3xl rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[92vh]">
+            <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-900 text-white shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-amber-500/20 text-amber-400 rounded-xl">
+                  <FileText className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm flex items-center gap-2">
+                    <span>Batch Traveler & Stage Timing Dossier</span>
+                    <span className="px-2 py-0.2 rounded bg-amber-500 text-slate-900 text-[10px] font-black font-mono">
+                      {travelerTicketRun.batchNumber}
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Product: <strong className="text-white">{travelerTicketRun.productName}</strong> • Run: {travelerTicketRun.runNumber} • Shift: {travelerTicketRun.shift}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setTravelerTicketRun(null)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5 overflow-y-auto flex-1 text-xs">
+              {/* Batch Overview Header Bar */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200 dark:border-slate-700">
+                <div>
+                  <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">Planned Loaves</span>
+                  <span className="font-mono font-black text-sm text-slate-900 dark:text-white">{travelerTicketRun.plannedQuantity} pcs</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">Good Produced</span>
+                  <span className="font-mono font-black text-sm text-emerald-600">{travelerTicketRun.actualProducedQuantity || 0} pcs</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">Rejects & Waste</span>
+                  <span className="font-mono font-black text-sm text-rose-600">{(travelerTicketRun.rejectedQuantity || 0) + (travelerTicketRun.wasteQuantity || 0)} units</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">Total Cycle Time</span>
+                  <span className="font-mono font-black text-sm text-amber-600">
+                    {getStageDuration(travelerTicketRun.startTime, travelerTicketRun.endTime) || getStageDuration(travelerTicketRun.startTime, undefined) || '—'}
+                  </span>
+                </div>
+              </div>
+
+              {/* 3-Stage Timing Matrix (One After Another) */}
+              <div className="space-y-3">
+                <h4 className="font-black text-xs uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <Timer className="w-4 h-4 text-amber-500" />
+                  3-Stage Sequential Execution Timings
+                </h4>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {/* Stage 1 Card */}
+                  <div className="p-4 rounded-2xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/50 dark:bg-amber-950/20 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-black text-amber-900 dark:text-amber-300 flex items-center gap-1.5 text-xs">
+                        <Flame className="w-4 h-4 text-amber-500" /> 1. Prep & Bake
+                      </span>
+                      <span className={`px-2 py-0.2 rounded-full text-[9px] font-black font-mono ${
+                        travelerTicketRun.stage1Completed ? 'bg-emerald-100 text-emerald-800' : travelerTicketRun.stage1StartTime ? 'bg-amber-500 text-white' : 'bg-slate-200 text-slate-600'
+                      }`}>
+                        {travelerTicketRun.stage1Completed ? 'COMPLETED' : travelerTicketRun.stage1StartTime ? 'ACTIVE' : 'PENDING'}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1 text-[11px] font-mono">
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Start:</span>
+                        <strong className="text-slate-800 dark:text-slate-200">{formatTimestamp(travelerTicketRun.stage1StartTime)}</strong>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Stop:</span>
+                        <strong className="text-slate-800 dark:text-slate-200">{formatTimestamp(travelerTicketRun.stage1EndTime)}</strong>
+                      </div>
+                      <div className="flex justify-between pt-1 border-t border-amber-200/60 dark:border-amber-900/40">
+                        <span className="text-slate-500 font-bold">Duration:</span>
+                        <strong className="text-amber-700 dark:text-amber-300 font-black">{getStageDuration(travelerTicketRun.stage1StartTime, travelerTicketRun.stage1EndTime) || '—'}</strong>
+                      </div>
+                    </div>
+
+                    <p className="text-[10px] text-slate-500 pt-1 border-t border-amber-200/40">
+                      Oven: {travelerTicketRun.bakingTempCelsius || 225}°C ({travelerTicketRun.bakingTimeMinutes || 28}m) • Dough: {travelerTicketRun.actualDoughWeightKg || travelerTicketRun.targetDoughWeightKg || 450}kg
+                    </p>
+                  </div>
+
+                  {/* Stage 2 Card */}
+                  <div className="p-4 rounded-2xl border border-blue-200 dark:border-blue-900/50 bg-blue-50/50 dark:bg-blue-950/20 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-black text-blue-900 dark:text-blue-300 flex items-center gap-1.5 text-xs">
+                        <Boxes className="w-4 h-4 text-blue-500" /> 2. Slice & Stacker
+                      </span>
+                      <span className={`px-2 py-0.2 rounded-full text-[9px] font-black font-mono ${
+                        travelerTicketRun.stage2Completed ? 'bg-emerald-100 text-emerald-800' : travelerTicketRun.stage2StartTime ? 'bg-blue-500 text-white' : 'bg-slate-200 text-slate-600'
+                      }`}>
+                        {travelerTicketRun.stage2Completed ? 'COMPLETED' : travelerTicketRun.stage2StartTime ? 'ACTIVE' : 'PENDING'}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1 text-[11px] font-mono">
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Start:</span>
+                        <strong className="text-slate-800 dark:text-slate-200">{formatTimestamp(travelerTicketRun.stage2StartTime)}</strong>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Stop:</span>
+                        <strong className="text-slate-800 dark:text-slate-200">{formatTimestamp(travelerTicketRun.stage2EndTime)}</strong>
+                      </div>
+                      <div className="flex justify-between pt-1 border-t border-blue-200/60 dark:border-blue-900/40">
+                        <span className="text-slate-500 font-bold">Duration:</span>
+                        <strong className="text-blue-700 dark:text-blue-300 font-black">{getStageDuration(travelerTicketRun.stage2StartTime, travelerTicketRun.stage2EndTime) || '—'}</strong>
+                      </div>
+                    </div>
+
+                    <p className="text-[10px] text-slate-500 pt-1 border-t border-blue-200/40">
+                      Multi-blade precision slicing & plate stacker loading.
+                    </p>
+                  </div>
+
+                  {/* Stage 3 Card */}
+                  <div className="p-4 rounded-2xl border border-purple-200 dark:border-purple-900/50 bg-purple-50/50 dark:bg-purple-950/20 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-black text-purple-900 dark:text-purple-300 flex items-center gap-1.5 text-xs">
+                        <PackageCheck className="w-4 h-4 text-purple-500" /> 3. Packaging Module
+                      </span>
+                      <span className={`px-2 py-0.2 rounded-full text-[9px] font-black font-mono ${
+                        travelerTicketRun.stage3Completed ? 'bg-emerald-100 text-emerald-800' : travelerTicketRun.stage3StartTime ? 'bg-purple-500 text-white' : 'bg-slate-200 text-slate-600'
+                      }`}>
+                        {travelerTicketRun.stage3Completed ? 'COMPLETED' : travelerTicketRun.stage3StartTime ? 'ACTIVE' : 'PENDING'}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1 text-[11px] font-mono">
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Start:</span>
+                        <strong className="text-slate-800 dark:text-slate-200">{formatTimestamp(travelerTicketRun.stage3StartTime)}</strong>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Stop:</span>
+                        <strong className="text-slate-800 dark:text-slate-200">{formatTimestamp(travelerTicketRun.stage3EndTime)}</strong>
+                      </div>
+                      <div className="flex justify-between pt-1 border-t border-purple-200/60 dark:border-purple-900/40">
+                        <span className="text-slate-500 font-bold">Duration:</span>
+                        <strong className="text-purple-700 dark:text-purple-300 font-black">{getStageDuration(travelerTicketRun.stage3StartTime, travelerTicketRun.stage3EndTime) || '—'}</strong>
+                      </div>
+                    </div>
+
+                    <p className="text-[10px] text-slate-500 pt-1 border-t border-purple-200/40">
+                      {travelerTicketRun.boxCount || 0} Boxes • {travelerTicketRun.bundleCount || 0} Bundles • {travelerTicketRun.coverCount || 0} Covers
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Packaging Breakdown Manifest */}
+              {(travelerTicketRun.boxCount || travelerTicketRun.bundleCount || travelerTicketRun.coverCount || travelerTicketRun.tinCount) && (
+                <div className="p-4 bg-purple-50 dark:bg-purple-950/30 rounded-2xl border border-purple-200 dark:border-purple-800 space-y-2">
+                  <div className="flex items-center justify-between font-extrabold text-purple-900 dark:text-purple-300">
+                    <span className="flex items-center gap-1.5">
+                      <Boxes className="w-4 h-4 text-purple-600" />
+                      Bulk Packaging Manifest ({travelerTicketRun.packagingType || 'MIXED'})
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-[11px]">
+                    <div className="bg-white dark:bg-slate-900 p-2 rounded-xl border border-purple-100 dark:border-purple-900 text-center">
+                      <span className="text-slate-400 block text-[10px]">Carton Boxes</span>
+                      <strong className="text-purple-700 dark:text-purple-300">{travelerTicketRun.boxCount || 0} ({travelerTicketRun.unitsPerBox || 24}/box)</strong>
+                    </div>
+                    <div className="bg-white dark:bg-slate-900 p-2 rounded-xl border border-purple-100 dark:border-purple-900 text-center">
+                      <span className="text-slate-400 block text-[10px]">Poly Bundles</span>
+                      <strong className="text-indigo-700 dark:text-indigo-300">{travelerTicketRun.bundleCount || 0} ({travelerTicketRun.unitsPerBundle || 10}/bun)</strong>
+                    </div>
+                    <div className="bg-white dark:bg-slate-900 p-2 rounded-xl border border-purple-100 dark:border-purple-900 text-center">
+                      <span className="text-slate-400 block text-[10px]">Master Covers</span>
+                      <strong className="text-amber-700 dark:text-amber-300">{travelerTicketRun.coverCount || 0} ({travelerTicketRun.unitsPerCover || 63}/cov)</strong>
+                    </div>
+                    <div className="bg-white dark:bg-slate-900 p-2 rounded-xl border border-purple-100 dark:border-purple-900 text-center">
+                      <span className="text-slate-400 block text-[10px]">Loose Loaves</span>
+                      <strong className="text-slate-700 dark:text-slate-300">{travelerTicketRun.looseUnits || 0}</strong>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* QC Verification & Quality Release */}
+              <div className="p-4 bg-emerald-50 dark:bg-emerald-950/30 rounded-2xl border border-emerald-200 dark:border-emerald-800 flex items-center justify-between">
+                <div>
+                  <span className="font-black text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    QC Release Certificate: {travelerTicketRun.isQcPassed ? 'CLEAR PASS' : 'CONDITIONAL PASS'}
+                  </span>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Inspector: <strong className="text-slate-800 dark:text-slate-200">{travelerTicketRun.qcInspectorName || 'S. Murugan (Senior QC)'}</strong> • Defect Note: {travelerTicketRun.defectNotes || 'Clear specification pass.'}
+                  </p>
+                </div>
+
+                <div className="text-right font-mono">
+                  <span className="text-[10px] text-slate-400 block">Yield Efficiency</span>
+                  <strong className="text-emerald-700 dark:text-emerald-300 text-sm">{travelerTicketRun.yieldPercentage || 100}%</strong>
+                </div>
+              </div>
+
+              {/* Actions Footer */}
+              <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl flex items-center gap-1.5 hover:bg-slate-200 cursor-pointer"
+                >
+                  <Printer className="w-4 h-4" /> Print Traveler Ticket
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setTravelerTicketRun(null)}
+                  className="px-5 py-2 bg-[#1C1C1C] dark:bg-white text-white dark:text-slate-900 font-black rounded-xl cursor-pointer"
+                >
+                  Close Dossier
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

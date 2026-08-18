@@ -45,6 +45,11 @@ public class CashBankController {
         return ResponseEntity.ok(cashBankService.recordTransaction(request));
     }
 
+    @PostMapping("/transfer")
+    public ResponseEntity<CashBankTransaction> recordTransfer(@Valid @RequestBody com.breadfactory.erp.dto.CashTransferRequest request) {
+        return ResponseEntity.ok(cashBankService.recordTransfer(request));
+    }
+
     @PostMapping("/daily-closing")
     public ResponseEntity<DailyCashClosing> executeDailyCashClosing(@Valid @RequestBody DailyCashClosingRequest request) {
         return ResponseEntity.ok(cashBankService.executeDailyCashClosing(request));

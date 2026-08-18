@@ -181,6 +181,7 @@ public class ProductionService {
                     try {
                         InventoryTransaction txn = InventoryTransaction.builder()
                                 .transactionType(InventoryTransactionType.RAW_MATERIAL_TO_PRODUCTION)
+                                .product(product)
                                 .quantity(requiredAmount.intValue())
                                 .source("RAW_MATERIAL_WAREHOUSE")
                                 .destination("PRODUCTION_LINE_" + (run.getMachineUsed() != null ? run.getMachineUsed() : "01"))
@@ -236,7 +237,24 @@ public class ProductionService {
             log.warn("Could not log stock ledger entry for production completion: {}", e.getMessage());
         }
 
-        // 4. Update Production Run state
+        // 4. Update Production Run state & ensure all stage timestamps are cleanly finalized
+        ZonedDateTime now = ZonedDateTime.now();
+        if (!Boolean.TRUE.equals(run.getStage1Completed())) {
+            run.setStage1Completed(true);
+            if (run.getStage1StartTime() == null) run.setStage1StartTime(run.getStartTime() != null ? run.getStartTime() : now);
+            if (run.getStage1EndTime() == null) run.setStage1EndTime(now);
+        }
+        if (!Boolean.TRUE.equals(run.getStage2Completed())) {
+            run.setStage2Completed(true);
+            if (run.getStage2StartTime() == null) run.setStage2StartTime(run.getStage1EndTime() != null ? run.getStage1EndTime() : now);
+            if (run.getStage2EndTime() == null) run.setStage2EndTime(now);
+        }
+        if (!Boolean.TRUE.equals(run.getStage3Completed())) {
+            run.setStage3Completed(true);
+            if (run.getStage3StartTime() == null) run.setStage3StartTime(run.getStage2EndTime() != null ? run.getStage2EndTime() : now);
+            if (run.getStage3EndTime() == null) run.setStage3EndTime(now);
+        }
+
         run.setActualProducedQuantity(actualProduced);
         run.setRejectedQuantity(rejected);
         run.setWasteQuantity(waste);
@@ -246,7 +264,7 @@ public class ProductionService {
         run.setIsQcPassed(request.getIsQcPassed() != null ? request.getIsQcPassed() : true);
         run.setStatus(ProductionStatus.COMPLETED);
         run.setCurrentStage(ProductionStage.STAGE_COMPLETED);
-        run.setEndTime(ZonedDateTime.now());
+        run.setEndTime(now);
 
         // Calculate Yield %: (actual produced / planned) * 100
         if (run.getPlannedQuantity() != null && run.getPlannedQuantity() > 0) {
@@ -313,9 +331,21 @@ public class ProductionService {
             run.setStage1StartTime(now);
             run.setCurrentStage(ProductionStage.STAGE_1_PREP_BAKE_COOL);
         } else if (stageNumber == 2) {
+            // Ensure Stage 1 has stop timing
+            if (!Boolean.TRUE.equals(run.getStage1Completed())) {
+                run.setStage1Completed(true);
+                if (run.getStage1EndTime() == null) run.setStage1EndTime(now);
+                if (run.getStage1StartTime() == null) run.setStage1StartTime(run.getStartTime() != null ? run.getStartTime() : now);
+            }
             run.setStage2StartTime(now);
             run.setCurrentStage(ProductionStage.STAGE_2_SLICE_PACK_STACK);
         } else if (stageNumber == 3) {
+            // Ensure Stage 2 has stop timing
+            if (!Boolean.TRUE.equals(run.getStage2Completed())) {
+                run.setStage2Completed(true);
+                if (run.getStage2EndTime() == null) run.setStage2EndTime(now);
+                if (run.getStage2StartTime() == null) run.setStage2StartTime(run.getStage1EndTime() != null ? run.getStage1EndTime() : now);
+            }
             run.setStage3StartTime(now);
             run.setCurrentStage(ProductionStage.STAGE_3_ROLL_PACKAGING);
         }
@@ -335,21 +365,34 @@ public class ProductionService {
         if (stageNumber == 1) {
             run.setStage1EndTime(now);
             run.setStage1Completed(true);
+            if (run.getStage1StartTime() == null) {
+                run.setStage1StartTime(run.getStartTime() != null ? run.getStartTime() : now);
+            }
             if (request != null) {
                 if (request.getBakingTempCelsius() != null) run.setBakingTempCelsius(request.getBakingTempCelsius());
                 if (request.getBakingTimeMinutes() != null) run.setBakingTimeMinutes(request.getBakingTimeMinutes());
                 if (request.getActualDoughWeightKg() != null) run.setActualDoughWeightKg(request.getActualDoughWeightKg());
             }
+            // Sequentially advance to Stage 2
             run.setCurrentStage(ProductionStage.STAGE_2_SLICE_PACK_STACK);
             if (run.getStage2StartTime() == null) run.setStage2StartTime(now);
         } else if (stageNumber == 2) {
             run.setStage2EndTime(now);
             run.setStage2Completed(true);
+            if (run.getStage2StartTime() == null) {
+                run.setStage2StartTime(run.getStage1EndTime() != null ? run.getStage1EndTime() : now);
+            }
+            // Sequentially advance to Stage 3
             run.setCurrentStage(ProductionStage.STAGE_3_ROLL_PACKAGING);
             if (run.getStage3StartTime() == null) run.setStage3StartTime(now);
         } else if (stageNumber == 3) {
             run.setStage3EndTime(now);
             run.setStage3Completed(true);
+            if (run.getStage3StartTime() == null) {
+                run.setStage3StartTime(run.getStage2EndTime() != null ? run.getStage2EndTime() : now);
+            }
+            // Sequentially advance to QC & Handover
+            run.setCurrentStage(ProductionStage.STAGE_COMPLETED);
         }
 
         ProductionRun updated = productionRunRepository.save(run);
@@ -517,9 +560,15 @@ public class ProductionService {
         ProductionRun run = productionRunRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Production run not found with ID: " + id));
 
+        ZonedDateTime now = ZonedDateTime.now();
         run.setStatus(ProductionStatus.IN_PROGRESS);
-        run.setCurrentStage(ProductionStage.STAGE_MIXING);
-        run.setStartTime(ZonedDateTime.now());
+        run.setCurrentStage(ProductionStage.STAGE_1_PREP_BAKE_COOL);
+        if (run.getStartTime() == null) {
+            run.setStartTime(now);
+        }
+        if (run.getStage1StartTime() == null) {
+            run.setStage1StartTime(now);
+        }
         ProductionRun saved = productionRunRepository.save(run);
         return mapToDTO(saved);
     }

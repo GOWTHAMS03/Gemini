@@ -192,6 +192,42 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> startTrip(int tripId) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/trips/$tripId/start'),
+        headers: _getHeaders(),
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw ApiException('Failed to start trip', response.statusCode);
+      }
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException('Start trip error: $e', 0);
+    }
+  }
+
+  Future<Map<String, dynamic>> completeTrip(int tripId) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/trips/$tripId/complete'),
+        headers: _getHeaders(),
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw ApiException('Failed to complete trip', response.statusCode);
+      }
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException('Complete trip error: $e', 0);
+    }
+  }
+
   Future<Map<String, dynamic>> updateTripStatus(int tripId, String status) async {
     try {
       final response = await http.put(

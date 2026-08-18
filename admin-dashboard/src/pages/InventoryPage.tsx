@@ -6,6 +6,8 @@ import {
   employeeApi,
   salesExecutiveApi,
   routeApi,
+  dispatchGroupApi,
+  DispatchGroupDTO,
   InventoryDashboardDTO,
   FinishedGoodsItemDTO,
   TransitStockItemDTO,
@@ -100,6 +102,8 @@ export const InventoryPage: React.FC = () => {
   const [isSubmittingAudit, setIsSubmittingAudit] = useState(false);
 
   // ─── Manual Packaging-Based Refill & Dispatch Crew State ──────────────────
+  const [dispatchGroups, setDispatchGroups] = useState<DispatchGroupDTO[]>([]);
+  const [selectedCrewKey, setSelectedCrewKey] = useState<string>('');
   const [selectedDriverId, setSelectedDriverId] = useState<number | null>(null);
   const [selectedSalesRepId, setSelectedSalesRepId] = useState<number | null>(null);
   const [selectedRouteForRefill, setSelectedRouteForRefill] = useState<string>('');
@@ -131,7 +135,7 @@ export const InventoryPage: React.FC = () => {
   const loadAllData = async () => {
     try {
       setIsLoading(true);
-      const [dashRes, fgRes, transitRes, truckRes, ledgerRes, prodRes, driverRes, salesRes, routeRes] = await Promise.all([
+      const [dashRes, fgRes, transitRes, truckRes, ledgerRes, prodRes, driverRes, salesRes, routeRes, dgRes] = await Promise.all([
         inventoryApi.getDashboard().catch(() => ({ data: null })),
         inventoryApi.getFinishedGoods().catch(() => ({ data: [] })),
         inventoryApi.getTransitStock().catch(() => ({ data: [] })),
@@ -141,6 +145,7 @@ export const InventoryPage: React.FC = () => {
         employeeApi.getAll('DRIVER').catch(() => ({ data: [] })),
         salesExecutiveApi.getAll().catch(() => ({ data: [] })),
         routeApi.getAll().catch(() => ({ data: [] })),
+        dispatchGroupApi.getAll().catch(() => ({ data: [] })),
       ]);
 
       if (dashRes.data) setDashboardData(dashRes.data);
@@ -149,6 +154,7 @@ export const InventoryPage: React.FC = () => {
       if (Array.isArray(truckRes.data)) setTruckInventories(truckRes.data);
       if (Array.isArray(ledgerRes.data)) setStockLedger(ledgerRes.data);
       if (Array.isArray(prodRes.data)) setProducts(prodRes.data);
+      if (Array.isArray(dgRes.data)) setDispatchGroups(dgRes.data);
       if (Array.isArray(driverRes.data)) {
         setDrivers(driverRes.data);
         if (driverRes.data.length > 0 && !selectedDriverId) {
@@ -316,6 +322,9 @@ export const InventoryPage: React.FC = () => {
     field: 'boxCount' | 'bundleCount' | 'coverCount' | 'tinCount' | 'looseUnits',
     val: number
   ) => {
+    const matchingFGs = finishedGoods.filter(fg => fg.productId === productId && fg.quantityAvailable > 0);
+    const maxAvailable = matchingFGs.reduce((sum, fg) => sum + fg.quantityAvailable, 0);
+
     setPackagingRefillRows(prev => {
       const current = prev[productId] || {
         boxCount: 0,
@@ -334,6 +343,11 @@ export const InventoryPage: React.FC = () => {
       };
 
       const totalUnits = computeProductPackagingUnits(updated);
+
+      if (maxAvailable > 0 && totalUnits > maxAvailable) {
+        showToast(`⚠️ Max available in inventory is ${maxAvailable} loaves!`);
+        return prev;
+      }
 
       // Sync with refillItems
       setRefillItems(oldItems => oldItems.map(item =>
@@ -510,12 +524,80 @@ export const InventoryPage: React.FC = () => {
     });
   }, [stockLedger, searchQuery, ledgerTypeFilter]);
 
-  // Categories list
-  const categories = useMemo(() => {
-    const cats = new Set<string>();
-    products.forEach(p => { if (p.category) cats.add(p.category); });
-    return Array.from(cats);
-  }, [products]);
+  // Combined Dispatch Crews (Groups + Active Fleet Trucks)
+  const dispatchCrews = useMemo(() => {
+    const list: Array<{
+      key: string;
+      label: string;
+      badge: string;
+      vehicleId: number;
+      vehicleNumber: string;
+      driverId?: number;
+      driverName: string;
+      salesPersonId?: number;
+      salesPersonName: string;
+      route?: string;
+    }> = [];
+
+    if (dispatchGroups.length > 0) {
+      dispatchGroups.forEach(dg => {
+        list.push({
+          key: `dg-${dg.id}`,
+          label: `${dg.groupName} (${dg.vehicleNumber || 'Truck'} • ${dg.driverName || 'Driver'})`,
+          badge: 'DISPATCH CREW',
+          vehicleId: dg.vehicleId || (truckInventories.length > 0 ? truckInventories[0].vehicleId : 1),
+          vehicleNumber: dg.vehicleNumber || (truckInventories.length > 0 ? truckInventories[0].vehicleNumber : 'TN-49-AB-1234'),
+          driverId: dg.driverId || (drivers.length > 0 ? drivers[0].id : undefined),
+          driverName: dg.driverName || (drivers.length > 0 ? drivers[0].fullName : 'Assigned Driver'),
+          salesPersonId: dg.salesPersonId || (salesReps.length > 0 ? salesReps[0].id : undefined),
+          salesPersonName: dg.salesPersonName || (salesReps.length > 0 ? salesReps[0].fullName : 'Sales Rep'),
+        });
+      });
+    }
+
+    // Also add crews from fleet vehicles
+    truckInventories.forEach(t => {
+      const existing = list.find(l => l.vehicleId === t.vehicleId);
+      if (!existing) {
+        const matchedDriver = drivers.find(d => d.fullName === t.assignedDriver) || (drivers.length > 0 ? drivers[0] : null);
+        const matchedSales = salesReps.length > 0 ? salesReps[0] : null;
+        list.push({
+          key: `truck-${t.vehicleId}`,
+          label: `${t.vehicleNumber} Delivery Crew (${t.assignedDriver || 'Driver'} • ${t.assignedRoute || 'Route'})`,
+          badge: `${t.totalAvailableUnits} ON VAN`,
+          vehicleId: t.vehicleId,
+          vehicleNumber: t.vehicleNumber,
+          driverId: matchedDriver?.id,
+          driverName: t.assignedDriver || (matchedDriver?.fullName || 'Assigned Driver'),
+          salesPersonId: matchedSales?.id,
+          salesPersonName: matchedSales?.fullName || 'Sales Executive',
+          route: t.assignedRoute
+        });
+      }
+    });
+
+    return list;
+  }, [dispatchGroups, truckInventories, drivers, salesReps]);
+
+  const selectedCrew = useMemo(() => {
+    return dispatchCrews.find(c => c.key === selectedCrewKey) || (dispatchCrews.length > 0 ? dispatchCrews[0] : null);
+  }, [dispatchCrews, selectedCrewKey]);
+
+  // Filter to only products that have available quantity in Finished Goods Inventory
+  const availableFinishedGoodsProducts = useMemo(() => {
+    return products
+      .map(prod => {
+        const matchingFGs = finishedGoods.filter(fg => fg.productId === prod.id && fg.quantityAvailable > 0);
+        const totalAvailable = matchingFGs.reduce((sum, fg) => sum + fg.quantityAvailable, 0);
+        const batches = matchingFGs.map(fg => fg.batchNumber).filter(Boolean);
+        return {
+          product: prod,
+          availableQuantity: totalAvailable,
+          batches: Array.from(new Set(batches))
+        };
+      })
+      .filter(item => item.availableQuantity > 0);
+  }, [products, finishedGoods]);
 
   // Refill Summary Calculation
   const refillSummary = useMemo(() => {
@@ -597,12 +679,22 @@ export const InventoryPage: React.FC = () => {
         </div>
       </div>
 
-      {/* ─── Metric KPI Cards ────────────────────────────────────────────── */}
+      {/* ─── Metric KPI Cards (Clickable to switch tabs) ────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Finished Goods KPI */}
-        <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-[#F0F2F5] dark:border-slate-700 shadow-xs space-y-3 overflow-hidden">
+        {/* Finished Goods KPI -> Opens Plant Finished Goods Tab */}
+        <div
+          onClick={() => setActiveTab('FINISHED_GOODS')}
+          className={`bg-white dark:bg-slate-800 p-5 rounded-2xl border shadow-xs space-y-3 overflow-hidden cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md ${
+            activeTab === 'FINISHED_GOODS'
+              ? 'border-blue-500 ring-2 ring-blue-500/20 bg-blue-50/20 dark:bg-blue-950/20'
+              : 'border-[#F0F2F5] dark:border-slate-700 hover:border-blue-300'
+          }`}
+          title="Click to view Plant Finished Goods (FGI)"
+        >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#8C8C8C] dark:text-slate-400 truncate">Plant Finished Goods (FGI)</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#8C8C8C] dark:text-slate-400 truncate">
+              Plant Finished Goods (FGI)
+            </span>
             <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 border border-blue-500/20">
               <Package className="w-4.5 h-4.5" />
             </div>
@@ -611,16 +703,31 @@ export const InventoryPage: React.FC = () => {
             <div className="text-2xl font-extrabold text-[#1C1C1C] dark:text-white leading-none">
               {(dashboardData?.totalFinishedGoodsUnits || 0).toLocaleString()} Loaves
             </div>
-            <div className="text-[11px] text-emerald-600 font-semibold pt-0.5">
-              Valuation: ₹{(dashboardData?.totalFinishedGoodsValue || 0).toLocaleString()}
+            <div className="flex items-center justify-between pt-0.5">
+              <span className="text-[11px] text-emerald-600 font-semibold">
+                Valuation: ₹{(dashboardData?.totalFinishedGoodsValue || 0).toLocaleString()}
+              </span>
+              <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 flex items-center gap-0.5">
+                View FGI ➔
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Transit Fleet Van Stock KPI */}
-        <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-[#F0F2F5] dark:border-slate-700 shadow-xs space-y-3 overflow-hidden">
+        {/* Transit Fleet Van Stock KPI -> Opens Truck Inventory Tab */}
+        <div
+          onClick={() => setActiveTab('TRANSIT_FLEET')}
+          className={`bg-white dark:bg-slate-800 p-5 rounded-2xl border shadow-xs space-y-3 overflow-hidden cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md ${
+            activeTab === 'TRANSIT_FLEET'
+              ? 'border-purple-500 ring-2 ring-purple-500/20 bg-purple-50/20 dark:bg-purple-950/20'
+              : 'border-[#F0F2F5] dark:border-slate-700 hover:border-purple-300'
+          }`}
+          title="Click to view Trucks Transit Stock & Refill"
+        >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#8C8C8C] dark:text-slate-400 truncate">Trucks Transit Stock</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#8C8C8C] dark:text-slate-400 truncate">
+              Trucks Transit Stock
+            </span>
             <div className="w-9 h-9 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 border border-purple-500/20">
               <Truck className="w-4.5 h-4.5" />
             </div>
@@ -629,16 +736,31 @@ export const InventoryPage: React.FC = () => {
             <div className="text-2xl font-extrabold text-purple-600 dark:text-purple-400 leading-none">
               {truckInventories.length} Trucks
             </div>
-            <div className="text-[11px] text-purple-600 font-semibold pt-0.5">
-              {dashboardData?.totalTransitFleetUnits || 0} loaves (₹{(dashboardData?.totalTransitFleetValue || 0).toLocaleString()})
+            <div className="flex items-center justify-between pt-0.5">
+              <span className="text-[11px] text-purple-600 font-semibold">
+                {dashboardData?.totalTransitFleetUnits || 0} loaves (₹{(dashboardData?.totalTransitFleetValue || 0).toLocaleString()})
+              </span>
+              <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 flex items-center gap-0.5">
+                View Fleet ➔
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Raw Materials Reserve */}
-        <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-[#F0F2F5] dark:border-slate-700 shadow-xs space-y-3 overflow-hidden">
+        {/* Raw Materials Reserve -> Opens Stock Ledger Tab */}
+        <div
+          onClick={() => setActiveTab('STOCK_LEDGER')}
+          className={`bg-white dark:bg-slate-800 p-5 rounded-2xl border shadow-xs space-y-3 overflow-hidden cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md ${
+            activeTab === 'STOCK_LEDGER'
+              ? 'border-amber-500 ring-2 ring-amber-500/20 bg-amber-50/20 dark:bg-amber-950/20'
+              : 'border-[#F0F2F5] dark:border-slate-700 hover:border-amber-300'
+          }`}
+          title="Click to view Stock Movement Ledger & Materials"
+        >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#8C8C8C] dark:text-slate-400 truncate">Raw Materials Reserve</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#8C8C8C] dark:text-slate-400 truncate">
+              Raw Materials Reserve
+            </span>
             <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 border border-amber-500/20">
               <Layers className="w-4.5 h-4.5" />
             </div>
@@ -647,16 +769,31 @@ export const InventoryPage: React.FC = () => {
             <div className="text-2xl font-extrabold text-[#1C1C1C] dark:text-white leading-none">
               {dashboardData?.totalRawMaterialCount || 0} Materials
             </div>
-            <div className="text-[11px] text-amber-600 font-semibold pt-0.5">
-              Reserve: ₹{(dashboardData?.totalRawMaterialValue || 0).toLocaleString()}
+            <div className="flex items-center justify-between pt-0.5">
+              <span className="text-[11px] text-amber-600 font-semibold">
+                Reserve: ₹{(dashboardData?.totalRawMaterialValue || 0).toLocaleString()}
+              </span>
+              <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-center gap-0.5">
+                View Ledger ➔
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Quality & Near Expiry Alert KPI */}
-        <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-[#F0F2F5] dark:border-slate-700 shadow-xs space-y-3 overflow-hidden">
+        {/* Quality & Near Expiry Alert KPI -> Opens Finished Goods */}
+        <div
+          onClick={() => setActiveTab('FINISHED_GOODS')}
+          className={`bg-white dark:bg-slate-800 p-5 rounded-2xl border shadow-xs space-y-3 overflow-hidden cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md ${
+            activeTab === 'FINISHED_GOODS' && (dashboardData?.nearExpiryBatchCount || 0) > 0
+              ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20 dark:bg-rose-950/20'
+              : 'border-[#F0F2F5] dark:border-slate-700 hover:border-rose-300'
+          }`}
+          title="Click to view Quality & Batch Expiry Tracking"
+        >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#8C8C8C] dark:text-slate-400 truncate">Near-Expiry Watchdog</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#8C8C8C] dark:text-slate-400 truncate">
+              Near-Expiry Watchdog
+            </span>
             <div className="w-9 h-9 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 border border-rose-500/20">
               <Clock className="w-4.5 h-4.5" />
             </div>
@@ -665,8 +802,13 @@ export const InventoryPage: React.FC = () => {
             <div className="text-2xl font-extrabold text-rose-600 dark:text-rose-400 leading-none">
               {dashboardData?.nearExpiryBatchCount || 0} Batches
             </div>
-            <div className="text-[11px] text-rose-500 font-semibold pt-0.5">
-              {dashboardData?.lowStockProductCount || 0} Low Stock SKUs
+            <div className="flex items-center justify-between pt-0.5">
+              <span className="text-[11px] text-rose-500 font-semibold">
+                {dashboardData?.lowStockProductCount || 0} Low Stock SKUs
+              </span>
+              <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 flex items-center gap-0.5">
+                Check Expiry ➔
+              </span>
             </div>
           </div>
         </div>
@@ -1263,69 +1405,53 @@ export const InventoryPage: React.FC = () => {
             </div>
 
             <form onSubmit={handleSaveTruckRefill} className="p-6 space-y-4 overflow-y-auto flex-1">
-              {/* 1. Dispatch Crew Selection (Vehicle, Driver, Sales Rep) */}
-              <div className="space-y-1.5">
+              {/* 1. Dispatch Crew Selection (Single Unified Dispatch Crew Dropdown) */}
+              <div className="space-y-2">
                 <label className="block text-xs font-black uppercase tracking-wider text-purple-700 dark:text-purple-300">
-                  1. Dispatch Crew Selection (Mobile App Linked)
+                  1. Dispatch Crew Selection (Mobile App Linked) *
                 </label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {/* Select Vehicle */}
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      Delivery Vehicle / Truck *
-                    </label>
-                    <CustomSelect
-                      value={selectedTruckForRefill ? String(selectedTruckForRefill.vehicleId) : ''}
-                      onChange={val => {
-                        const matched = truckInventories.find(t => t.vehicleId === Number(val));
-                        setSelectedTruckForRefill(matched || null);
-                        if (matched?.assignedRoute) {
-                          setSelectedRouteForRefill(matched.assignedRoute);
-                        }
-                      }}
-                      options={truckInventories.map(t => ({
-                        value: String(t.vehicleId),
-                        label: `${t.vehicleNumber} (${t.model})`,
-                        badge: `${t.totalAvailableUnits} ON VAN`
-                      }))}
-                      placeholder="Select Vehicle"
-                    />
-                  </div>
+                <CustomSelect
+                  value={selectedCrewKey || (dispatchCrews.length > 0 ? dispatchCrews[0].key : '')}
+                  onChange={val => {
+                    setSelectedCrewKey(val);
+                    const crew = dispatchCrews.find(c => c.key === val);
+                    if (crew) {
+                      const matchedTruck = truckInventories.find(t => t.vehicleId === crew.vehicleId);
+                      setSelectedTruckForRefill(matchedTruck || null);
+                      if (crew.driverId) setSelectedDriverId(crew.driverId);
+                      if (crew.salesPersonId) setSelectedSalesRepId(crew.salesPersonId);
+                      if (crew.route) setSelectedRouteForRefill(crew.route);
+                    }
+                  }}
+                  options={dispatchCrews.map(c => ({
+                    value: c.key,
+                    label: c.label,
+                    badge: c.badge || 'CREW'
+                  }))}
+                  placeholder="Select Dispatch Crew"
+                />
 
-                  {/* Select Driver */}
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      Assigned Driver *
-                    </label>
-                    <CustomSelect
-                      value={selectedDriverId ? String(selectedDriverId) : ''}
-                      onChange={(val: string) => setSelectedDriverId(Number(val))}
-                      options={drivers.map(d => ({
-                        value: String(d.id),
-                        label: `${d.fullName} (${d.phone || d.username})`,
-                        badge: 'DRIVER'
-                      }))}
-                      placeholder="Select Driver"
-                    />
+                {/* Selected Crew Details Info Card */}
+                {selectedCrew && (
+                  <div className="p-3.5 bg-purple-50/80 dark:bg-purple-950/40 rounded-2xl border border-purple-200 dark:border-purple-800/60 flex items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center font-bold shrink-0 shadow-xs">
+                        <Truck className="w-5 h-5" />
+                      </div>
+                      <div className="space-y-0.5">
+                        <p className="font-extrabold text-slate-900 dark:text-white">
+                          {selectedCrew.label}
+                        </p>
+                        <p className="text-[11px] text-purple-700 dark:text-purple-300 font-medium">
+                          🚚 Truck: <strong className="font-mono">{selectedTruckForRefill?.vehicleNumber || selectedCrew.vehicleNumber}</strong> • 👤 Driver: <strong>{selectedCrew.driverName}</strong> • 💼 Sales: <strong>{selectedCrew.salesPersonName}</strong>
+                        </p>
+                      </div>
+                    </div>
+                    <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300 shrink-0 border border-emerald-300/40">
+                      ✓ Mobile Linked
+                    </span>
                   </div>
-
-                  {/* Select Sales Representative */}
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      Sales Person / Rep *
-                    </label>
-                    <CustomSelect
-                      value={selectedSalesRepId ? String(selectedSalesRepId) : ''}
-                      onChange={(val: string) => setSelectedSalesRepId(Number(val))}
-                      options={salesReps.map(s => ({
-                        value: String(s.id),
-                        label: `${s.fullName} (${s.email || 'Sales'})`,
-                        badge: 'SALES'
-                      }))}
-                      placeholder="Select Sales Rep"
-                    />
-                  </div>
-                </div>
+                )}
               </div>
 
               {/* 2. Route and Dispatch Day (Date - not shift) */}
@@ -1406,107 +1532,144 @@ export const InventoryPage: React.FC = () => {
                 </div>
               )}
 
-              {/* 4. Load Inventory (Boxes, Bundles & Loose Units) */}
+              {/* 3. Load Available Finished Goods Inventory */}
               <div className="space-y-2">
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
-                  <span>3. Load Inventory (Boxes, Bundles & Loose Units)</span>
+                  <span>3. Load Available Finished Goods Inventory</span>
                   <span className="text-[10px] text-purple-600 font-bold font-mono">Total to Load: {refillSummary.totalLoaves} loaves</span>
                 </label>
 
-                <div className="divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden max-h-72 overflow-y-auto">
-                  {products.map(prod => {
-                    const pkg = packagingRefillRows[prod.id] || {
-                      boxCount: 0,
-                      unitsPerBox: 24,
-                      bundleCount: 0,
-                      unitsPerBundle: 10,
-                      coverCount: 0,
-                      unitsPerCover: 63,
-                      tinCount: 0,
-                      looseUnits: 0
-                    };
-                    const totalProdLoaves = computeProductPackagingUnits(pkg);
+                {availableFinishedGoodsProducts.length === 0 ? (
+                  <div className="p-6 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-2xl text-center space-y-2">
+                    <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 mx-auto flex items-center justify-center font-bold">
+                      <Package className="w-5 h-5" />
+                    </div>
+                    <p className="text-xs font-bold text-amber-900 dark:text-amber-300">
+                      No Finished Goods Available in Central Warehouse
+                    </p>
+                    <p className="text-[11px] text-amber-700 dark:text-amber-400 max-w-md mx-auto">
+                      All products currently have 0 stock. Please complete a production batch in the Production Hub to deposit finished loaves into inventory before loading trucks.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden max-h-72 overflow-y-auto">
+                    {availableFinishedGoodsProducts.map(({ product: prod, availableQuantity, batches }) => {
+                      const pkg = packagingRefillRows[prod.id] || {
+                        boxCount: 0,
+                        unitsPerBox: 24,
+                        bundleCount: 0,
+                        unitsPerBundle: 10,
+                        coverCount: 0,
+                        unitsPerCover: 63,
+                        tinCount: 0,
+                        looseUnits: 0
+                      };
+                      const totalProdLoaves = computeProductPackagingUnits(pkg);
+                      const remainingInWarehouse = Math.max(0, availableQuantity - totalProdLoaves);
 
-                    return (
-                      <div key={prod.id} className="p-3 bg-white dark:bg-slate-800 space-y-2 hover:bg-slate-50/50">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-xs font-extrabold text-slate-900 dark:text-white truncate">
-                              {prod.name}
-                            </p>
-                            <span className="text-[10px] text-slate-400 font-mono">{prod.productCode} • {prod.category}</span>
+                      return (
+                        <div key={prod.id} className="p-3 bg-white dark:bg-slate-800 space-y-2 hover:bg-slate-50/50">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <p className="text-xs font-extrabold text-slate-900 dark:text-white truncate">
+                                  {prod.name}
+                                </p>
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                                  {availableQuantity} Available
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono">
+                                <span>{prod.productCode} • {prod.category}</span>
+                                {batches.length > 0 && (
+                                  <span className="text-purple-600 dark:text-purple-400 font-bold">
+                                    • Batch: {batches.join(', ')}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-xs font-mono font-black text-purple-600 dark:text-purple-400 block">
+                                {totalProdLoaves} / {availableQuantity} loaves
+                              </span>
+                              <span className="text-[9px] text-slate-400 font-mono">
+                                (Remaining: {remainingInWarehouse})
+                              </span>
+                            </div>
                           </div>
-                          <span className="text-xs font-mono font-black text-purple-600 dark:text-purple-400">
-                            {totalProdLoaves} loaves
-                          </span>
+
+                          {/* Inputs for Boxes, Bundles, Covers, Tins, Loose */}
+                          <div className="grid grid-cols-5 gap-1.5 text-center font-mono text-[10px]">
+                            <div>
+                              <label className="block text-[9px] text-slate-400 mb-0.5">Boxes ({pkg.unitsPerBox || 24}/b)</label>
+                              <input
+                                type="number"
+                                min="0"
+                                max={Math.floor(availableQuantity / (pkg.unitsPerBox || 24))}
+                                value={pkg.boxCount || ''}
+                                onChange={e => handlePackagingQtyChange(prod.id, 'boxCount', parseInt(e.target.value, 10) || 0)}
+                                placeholder="0"
+                                className="w-full text-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg py-1 font-bold text-xs"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-[9px] text-slate-400 mb-0.5">Bundles ({pkg.unitsPerBundle || 10}/b)</label>
+                              <input
+                                type="number"
+                                min="0"
+                                max={Math.floor(availableQuantity / (pkg.unitsPerBundle || 10))}
+                                value={pkg.bundleCount || ''}
+                                onChange={e => handlePackagingQtyChange(prod.id, 'bundleCount', parseInt(e.target.value, 10) || 0)}
+                                placeholder="0"
+                                className="w-full text-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg py-1 font-bold text-xs"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-[9px] text-slate-400 mb-0.5">Covers (63/c)</label>
+                              <input
+                                type="number"
+                                min="0"
+                                max={Math.floor(availableQuantity / (pkg.unitsPerCover || 63))}
+                                value={pkg.coverCount || ''}
+                                onChange={e => handlePackagingQtyChange(prod.id, 'coverCount', parseInt(e.target.value, 10) || 0)}
+                                placeholder="0"
+                                className="w-full text-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg py-1 font-bold text-xs"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-[9px] text-slate-400 mb-0.5">3kg Tins</label>
+                              <input
+                                type="number"
+                                min="0"
+                                max={Math.floor(availableQuantity / 3)}
+                                value={pkg.tinCount || ''}
+                                onChange={e => handlePackagingQtyChange(prod.id, 'tinCount', parseInt(e.target.value, 10) || 0)}
+                                placeholder="0"
+                                className="w-full text-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg py-1 font-bold text-xs"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-[9px] text-slate-400 mb-0.5">Loose Loaves</label>
+                              <input
+                                type="number"
+                                min="0"
+                                max={availableQuantity}
+                                value={pkg.looseUnits || ''}
+                                onChange={e => handlePackagingQtyChange(prod.id, 'looseUnits', parseInt(e.target.value, 10) || 0)}
+                                placeholder="0"
+                                className="w-full text-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg py-1 font-bold text-xs"
+                              />
+                            </div>
+                          </div>
                         </div>
-
-                        {/* Inputs for Boxes, Bundles, Covers, Tins, Loose */}
-                        <div className="grid grid-cols-5 gap-1.5 text-center font-mono text-[10px]">
-                          <div>
-                            <label className="block text-[9px] text-slate-400 mb-0.5">Boxes ({pkg.unitsPerBox || 24}/b)</label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={pkg.boxCount || ''}
-                              onChange={e => handlePackagingQtyChange(prod.id, 'boxCount', parseInt(e.target.value, 10) || 0)}
-                              placeholder="0"
-                              className="w-full text-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg py-1 font-bold text-xs"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-[9px] text-slate-400 mb-0.5">Bundles ({pkg.unitsPerBundle || 10}/b)</label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={pkg.bundleCount || ''}
-                              onChange={e => handlePackagingQtyChange(prod.id, 'bundleCount', parseInt(e.target.value, 10) || 0)}
-                              placeholder="0"
-                              className="w-full text-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg py-1 font-bold text-xs"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-[9px] text-slate-400 mb-0.5">Covers (63/c)</label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={pkg.coverCount || ''}
-                              onChange={e => handlePackagingQtyChange(prod.id, 'coverCount', parseInt(e.target.value, 10) || 0)}
-                              placeholder="0"
-                              className="w-full text-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg py-1 font-bold text-xs"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-[9px] text-slate-400 mb-0.5">3kg Tins</label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={pkg.tinCount || ''}
-                              onChange={e => handlePackagingQtyChange(prod.id, 'tinCount', parseInt(e.target.value, 10) || 0)}
-                              placeholder="0"
-                              className="w-full text-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg py-1 font-bold text-xs"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-[9px] text-slate-400 mb-0.5">Loose Loaves</label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={pkg.looseUnits || ''}
-                              onChange={e => handlePackagingQtyChange(prod.id, 'looseUnits', parseInt(e.target.value, 10) || 0)}
-                              placeholder="0"
-                              className="w-full text-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg py-1 font-bold text-xs"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               <div>
@@ -1738,99 +1901,122 @@ export const InventoryPage: React.FC = () => {
                   </div>
 
                   {/* Packaging Input Rows */}
-                  <div className="divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden max-h-72 overflow-y-auto">
-                    {products.map(prod => {
-                      const pkg = packagingRefillRows[prod.id] || {
-                        boxCount: 0,
-                        unitsPerBox: 24,
-                        bundleCount: 0,
-                        unitsPerBundle: 10,
-                        coverCount: 0,
-                        unitsPerCover: 63,
-                        tinCount: 0,
-                        looseUnits: 0
-                      };
-                      const totalProdLoaves = computeProductPackagingUnits(pkg);
+                  {availableFinishedGoodsProducts.length === 0 ? (
+                    <div className="p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-2xl text-center space-y-1">
+                      <p className="text-xs font-bold text-amber-900 dark:text-amber-300">
+                        No Finished Goods Available in Warehouse
+                      </p>
+                      <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                        Production inventory is currently empty. You can proceed with existing on-truck stock or complete a production run first.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden max-h-72 overflow-y-auto">
+                      {availableFinishedGoodsProducts.map(({ product: prod, availableQuantity, batches }) => {
+                        const pkg = packagingRefillRows[prod.id] || {
+                          boxCount: 0,
+                          unitsPerBox: 24,
+                          bundleCount: 0,
+                          unitsPerBundle: 10,
+                          coverCount: 0,
+                          unitsPerCover: 63,
+                          tinCount: 0,
+                          looseUnits: 0
+                        };
+                        const totalProdLoaves = computeProductPackagingUnits(pkg);
 
-                      return (
-                        <div key={prod.id} className="p-3 bg-white dark:bg-slate-800 space-y-2 hover:bg-slate-50/50">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-xs font-extrabold text-slate-900 dark:text-white truncate">
-                                {prod.name}
-                              </p>
-                              <span className="text-[10px] text-slate-400 font-mono">{prod.productCode} • {prod.category}</span>
+                        return (
+                          <div key={prod.id} className="p-3 bg-white dark:bg-slate-800 space-y-2 hover:bg-slate-50/50">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <p className="text-xs font-extrabold text-slate-900 dark:text-white truncate">
+                                    {prod.name}
+                                  </p>
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                                    {availableQuantity} Avail
+                                  </span>
+                                </div>
+                                <span className="text-[10px] text-slate-400 font-mono">
+                                  {prod.productCode} • {prod.category} {batches.length > 0 ? `• Batch: ${batches[0]}` : ''}
+                                </span>
+                              </div>
+                              <span className="text-xs font-mono font-black text-purple-600 dark:text-purple-400">
+                                +{totalProdLoaves} / {availableQuantity} loaves
+                              </span>
                             </div>
-                            <span className="text-xs font-mono font-black text-purple-600 dark:text-purple-400">
-                              +{totalProdLoaves} loaves
-                            </span>
+
+                            <div className="grid grid-cols-5 gap-1.5 text-center font-mono text-[10px]">
+                              <div>
+                                <label className="block text-[9px] text-slate-400 mb-0.5">Boxes ({pkg.unitsPerBox || 24}/b)</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max={Math.floor(availableQuantity / (pkg.unitsPerBox || 24))}
+                                  value={pkg.boxCount || ''}
+                                  onChange={e => handlePackagingQtyChange(prod.id, 'boxCount', parseInt(e.target.value, 10) || 0)}
+                                  placeholder="0"
+                                  className="w-full text-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg py-1 font-bold text-xs"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-[9px] text-slate-400 mb-0.5">Bundles ({pkg.unitsPerBundle || 10}/b)</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max={Math.floor(availableQuantity / (pkg.unitsPerBundle || 10))}
+                                  value={pkg.bundleCount || ''}
+                                  onChange={e => handlePackagingQtyChange(prod.id, 'bundleCount', parseInt(e.target.value, 10) || 0)}
+                                  placeholder="0"
+                                  className="w-full text-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg py-1 font-bold text-xs"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-[9px] text-slate-400 mb-0.5">Covers (63/c)</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max={Math.floor(availableQuantity / (pkg.unitsPerCover || 63))}
+                                  value={pkg.coverCount || ''}
+                                  onChange={e => handlePackagingQtyChange(prod.id, 'coverCount', parseInt(e.target.value, 10) || 0)}
+                                  placeholder="0"
+                                  className="w-full text-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg py-1 font-bold text-xs"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-[9px] text-slate-400 mb-0.5">3kg Tins</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max={Math.floor(availableQuantity / 3)}
+                                  value={pkg.tinCount || ''}
+                                  onChange={e => handlePackagingQtyChange(prod.id, 'tinCount', parseInt(e.target.value, 10) || 0)}
+                                  placeholder="0"
+                                  className="w-full text-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg py-1 font-bold text-xs"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-[9px] text-slate-400 mb-0.5">Loose</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max={availableQuantity}
+                                  value={pkg.looseUnits || ''}
+                                  onChange={e => handlePackagingQtyChange(prod.id, 'looseUnits', parseInt(e.target.value, 10) || 0)}
+                                  placeholder="0"
+                                  className="w-full text-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg py-1 font-bold text-xs"
+                                />
+                              </div>
+                            </div>
                           </div>
-
-                          <div className="grid grid-cols-5 gap-1.5 text-center font-mono text-[10px]">
-                            <div>
-                              <label className="block text-[9px] text-slate-400 mb-0.5">Boxes ({pkg.unitsPerBox || 24}/b)</label>
-                              <input
-                                type="number"
-                                min="0"
-                                value={pkg.boxCount || ''}
-                                onChange={e => handlePackagingQtyChange(prod.id, 'boxCount', parseInt(e.target.value, 10) || 0)}
-                                placeholder="0"
-                                className="w-full text-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg py-1 font-bold text-xs"
-                              />
-                            </div>
-
-                            <div>
-                              <label className="block text-[9px] text-slate-400 mb-0.5">Bundles ({pkg.unitsPerBundle || 10}/b)</label>
-                              <input
-                                type="number"
-                                min="0"
-                                value={pkg.bundleCount || ''}
-                                onChange={e => handlePackagingQtyChange(prod.id, 'bundleCount', parseInt(e.target.value, 10) || 0)}
-                                placeholder="0"
-                                className="w-full text-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg py-1 font-bold text-xs"
-                              />
-                            </div>
-
-                            <div>
-                              <label className="block text-[9px] text-slate-400 mb-0.5">Covers (63/c)</label>
-                              <input
-                                type="number"
-                                min="0"
-                                value={pkg.coverCount || ''}
-                                onChange={e => handlePackagingQtyChange(prod.id, 'coverCount', parseInt(e.target.value, 10) || 0)}
-                                placeholder="0"
-                                className="w-full text-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg py-1 font-bold text-xs"
-                              />
-                            </div>
-
-                            <div>
-                              <label className="block text-[9px] text-slate-400 mb-0.5">3kg Tins</label>
-                              <input
-                                type="number"
-                                min="0"
-                                value={pkg.tinCount || ''}
-                                onChange={e => handlePackagingQtyChange(prod.id, 'tinCount', parseInt(e.target.value, 10) || 0)}
-                                placeholder="0"
-                                className="w-full text-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg py-1 font-bold text-xs"
-                              />
-                            </div>
-
-                            <div>
-                              <label className="block text-[9px] text-slate-400 mb-0.5">Loose</label>
-                              <input
-                                type="number"
-                                min="0"
-                                value={pkg.looseUnits || ''}
-                                onChange={e => handlePackagingQtyChange(prod.id, 'looseUnits', parseInt(e.target.value, 10) || 0)}
-                                placeholder="0"
-                                className="w-full text-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg py-1 font-bold text-xs"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  )}
 
                   <div className="flex items-center justify-between pt-2">
                     <button

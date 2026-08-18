@@ -35,6 +35,11 @@ public class DataInitializer implements CommandLineRunner {
             jdbcTemplate.execute("ALTER TABLE trips DROP CONSTRAINT IF EXISTS trips_status_check");
             jdbcTemplate.execute("ALTER TABLE trips DROP CONSTRAINT IF EXISTS trips_beta_payment_status_check");
             jdbcTemplate.execute("ALTER TABLE trips DROP CONSTRAINT IF EXISTS trips_settlement_status_check");
+            jdbcTemplate.execute("ALTER TABLE production_runs DROP CONSTRAINT IF EXISTS production_runs_current_stage_check");
+            jdbcTemplate.execute("ALTER TABLE production_runs DROP CONSTRAINT IF EXISTS production_runs_status_check");
+            jdbcTemplate.execute("ALTER TABLE production_runs DROP CONSTRAINT IF EXISTS production_runs_shift_check");
+            jdbcTemplate.execute("ALTER TABLE inventory_transactions DROP CONSTRAINT IF EXISTS inventory_transactions_transaction_type_check");
+            jdbcTemplate.execute("ALTER TABLE product_stock_ledger DROP CONSTRAINT IF EXISTS product_stock_ledger_movement_type_check");
         } catch (Exception e) {
             log.debug("Constraint drop skipped: {}", e.getMessage());
         }

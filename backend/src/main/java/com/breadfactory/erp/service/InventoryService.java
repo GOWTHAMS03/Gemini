@@ -563,12 +563,16 @@ public class InventoryService {
         if (!activeTrips.isEmpty()) {
             trip = activeTrips.get(0);
         } else {
-            String tripNo = "TRIP-" + vehicle.getVehicleNumber().replace("-", "").toUpperCase() + "-" + System.currentTimeMillis() % 10000;
+            String tripNo = "TRIP-" + vehicle.getVehicleNumber().replace("-", "").toUpperCase() + "-" + (System.currentTimeMillis() % 10000);
+            User driver = userRepository.findAll().stream().findFirst().orElse(null);
             trip = Trip.builder()
                     .tripNumber(tripNo)
                     .tripDate(LocalDate.now())
                     .vehicle(vehicle)
+                    .driver(driver)
+                    .routeName(vehicle.getAssignedRoute() != null ? vehicle.getAssignedRoute() : "Daily Refill Route")
                     .status(TripStatus.IN_PROGRESS)
+                    .totalLoadedQuantity(0)
                     .totalSalesAmount(BigDecimal.ZERO)
                     .cashCollected(BigDecimal.ZERO)
                     .upiCollected(BigDecimal.ZERO)

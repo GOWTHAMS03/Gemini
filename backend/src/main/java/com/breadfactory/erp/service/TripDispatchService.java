@@ -36,6 +36,8 @@ public class TripDispatchService {
     private final ShopRepository shopRepository;
     private final ProductRepository productRepository;
     private final FinishedGoodsInventoryRepository finishedGoodsInventoryRepository;
+    private final ProductStockLedgerRepository stockLedgerRepository;
+    private final WarehouseRepository warehouseRepository;
     private final ValidationService validationService;
 
     private final ExpenseRepository expenseRepository;
@@ -465,8 +467,10 @@ public class TripDispatchService {
             }
         }
 
-        // Add products to load
+        // Add products to load & deduct from Central Finished Goods Inventory
         if (request.getItems() != null && !request.getItems().isEmpty()) {
+            Warehouse factoryWh = warehouseRepository.findByType(WarehouseType.FACTORY).stream().findFirst().orElse(null);
+
             for (TripCreateRequest.TripItemRequest itemReq : request.getItems()) {
                 if (itemReq.getProductId() == null)
                     continue;
@@ -479,6 +483,46 @@ public class TripDispatchService {
                 if (loadedQty > availableStock) {
                     log.warn("Warehouse stock warning for product {}: requested {}, available {}",
                             product.getName(), loadedQty, availableStock);
+                }
+
+                // Deduct from Finished Goods Inventory (FIFO by expiry date)
+                if (loadedQty > 0) {
+                    List<FinishedGoodsInventory> fgBatches = finishedGoodsInventoryRepository.findAll().stream()
+                            .filter(fg -> fg.getProduct() != null && fg.getProduct().getId().equals(product.getId()) &&
+                                          fg.getQuantityAvailable() != null && fg.getQuantityAvailable() > 0)
+                            .sorted(Comparator.comparing(FinishedGoodsInventory::getExpiryDate, Comparator.nullsLast(Comparator.naturalOrder())))
+                            .collect(Collectors.toList());
+
+                    int remainingToDeduct = loadedQty;
+                    for (FinishedGoodsInventory batch : fgBatches) {
+                        if (remainingToDeduct <= 0) break;
+                        int avail = batch.getQuantityAvailable() != null ? batch.getQuantityAvailable() : 0;
+                        if (avail >= remainingToDeduct) {
+                            batch.setQuantityAvailable(avail - remainingToDeduct);
+                            finishedGoodsInventoryRepository.save(batch);
+                            remainingToDeduct = 0;
+                        } else {
+                            batch.setQuantityAvailable(0);
+                            finishedGoodsInventoryRepository.save(batch);
+                            remainingToDeduct -= avail;
+                        }
+                    }
+
+                    // Record Product Stock Ledger entry (TRIP_LOAD)
+                    try {
+                        ProductStockLedger ledger = ProductStockLedger.builder()
+                                .product(product)
+                                .warehouse(factoryWh)
+                                .trip(trip)
+                                .movementType(StockMovementType.TRIP_LOAD)
+                                .quantity(loadedQty)
+                                .referenceNumber(trip.getTripNumber())
+                                .notes("Loaded " + loadedQty + " units to truck " + (vehicle != null ? vehicle.getVehicleNumber() : "Fleet") + " for Trip " + trip.getTripNumber())
+                                .build();
+                        stockLedgerRepository.save(ledger);
+                    } catch (Exception e) {
+                        log.warn("Could not log stock ledger entry for trip load: {}", e.getMessage());
+                    }
                 }
 
                 TripItem item = TripItem.builder()
@@ -598,18 +642,42 @@ public class TripDispatchService {
     }
 
     @Transactional
-    public TripDTO completeTrip(Long tripId, String completedBy) {
-        log.info("Completing trip: {}", tripId);
+    public TripDTO startTrip(Long tripId, String startedBy) {
+        log.info("Starting trip: ID {} by {}", tripId, startedBy);
         Trip trip = tripRepository.findById(tripId)
-                .orElseThrow(() -> new RuntimeException("Trip not found"));
+                .orElseThrow(() -> new RuntimeException("Trip not found with ID: " + tripId));
+
+        trip.setStatus(TripStatus.IN_PROGRESS);
+        if (trip.getStartTime() == null) {
+            trip.setStartTime(ZonedDateTime.now());
+        }
+        if (trip.getDispatchTime() == null) {
+            trip.setDispatchTime(ZonedDateTime.now());
+        }
+        trip.setUpdatedBy(startedBy != null ? startedBy : "sales_person");
+
+        Trip updated = tripRepository.save(trip);
+        log.info("Trip #{} started at {}", updated.getTripNumber(), updated.getStartTime());
+        return mapToTripDTO(updated);
+    }
+
+    @Transactional
+    public TripDTO completeTrip(Long tripId, String completedBy) {
+        log.info("Completing trip: ID {} by {}", tripId, completedBy);
+        Trip trip = tripRepository.findById(tripId)
+                .orElseThrow(() -> new RuntimeException("Trip not found with ID: " + tripId));
 
         performInventoryReconciliation(trip);
         trip.setStatus(TripStatus.COMPLETED);
         trip.setCompletionTime(ZonedDateTime.now());
         trip.setReturnTime(ZonedDateTime.now());
-        trip.setUpdatedBy(completedBy);
+        if (trip.getStartTime() == null) {
+            trip.setStartTime(trip.getDispatchTime() != null ? trip.getDispatchTime() : ZonedDateTime.now());
+        }
+        trip.setUpdatedBy(completedBy != null ? completedBy : "sales_person");
 
         Trip updated = tripRepository.save(trip);
+        log.info("Trip #{} completed at {}", updated.getTripNumber(), updated.getCompletionTime());
         return mapToTripDTO(updated);
     }
 
@@ -649,11 +717,18 @@ public class TripDispatchService {
     @Transactional
     public Trip updateTripStatus(Long id, TripStatus status) {
         Trip trip = tripRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Trip not found"));
+                .orElseThrow(() -> new RuntimeException("Trip not found with ID: " + id));
         trip.setStatus(status);
+        if (status == TripStatus.IN_PROGRESS && trip.getStartTime() == null) {
+            trip.setStartTime(ZonedDateTime.now());
+        }
         if (status == TripStatus.COMPLETED) {
             trip.setReturnTime(ZonedDateTime.now());
             trip.setCompletionTime(ZonedDateTime.now());
+            if (trip.getStartTime() == null) {
+                trip.setStartTime(trip.getDispatchTime() != null ? trip.getDispatchTime() : ZonedDateTime.now());
+            }
+            performInventoryReconciliation(trip);
         }
         return tripRepository.save(trip);
     }

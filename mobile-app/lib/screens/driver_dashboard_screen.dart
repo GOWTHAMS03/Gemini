@@ -27,6 +27,330 @@ class DriverDashboardScreen extends StatefulWidget {
 class _DriverDashboardScreenState extends State<DriverDashboardScreen> {
   bool _isHeaderFolded = false;
 
+  void _showStartTripVerificationModal(BuildContext context, DeliveryProvider provider) {
+    if (provider.activeTrip == null) return;
+    final trip = provider.activeTrip!;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    bool isChecked = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.fromLTRB(20, 16, 20, MediaQuery.of(context).viewInsets.bottom + 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppTheme.emeraldGreen.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.play_arrow_rounded, color: AppTheme.emeraldGreen, size: 24),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Verify & Start Sales Route Trip',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? Colors.white : Colors.black87,
+                              ),
+                            ),
+                            Text(
+                              'Trip #${trip.tripNumber}',
+                              style: const TextStyle(fontSize: 12, color: AppTheme.reactCyan, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: isDark ? AppTheme.slateBorder : Colors.black12),
+                    ),
+                    child: Column(
+                      children: [
+                        _buildVerificationRow('Route Corridor:', trip.routeName.isNotEmpty ? trip.routeName : 'Standard Route', isDark),
+                        const SizedBox(height: 8),
+                        _buildVerificationRow('Vehicle & Fleet:', trip.vehicleNumber.isNotEmpty ? trip.vehicleNumber : 'Delivery Van', isDark),
+                        const SizedBox(height: 8),
+                        _buildVerificationRow('Loaded Truck Inventory:', '${trip.totalLoadedQuantity} Pkts Loaded', isDark, isHighlight: true),
+                        const SizedBox(height: 8),
+                        _buildVerificationRow('Planned Customer Outlets:', '${provider.shops.length} Stops', isDark),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  InkWell(
+                    onTap: () => setModalState(() => isChecked = !isChecked),
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppTheme.emeraldGreen.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppTheme.emeraldGreen.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          Checkbox(
+                            value: isChecked,
+                            onChanged: (val) => setModalState(() => isChecked = val ?? false),
+                            activeColor: AppTheme.emeraldGreen,
+                          ),
+                          const Expanded(
+                            child: Text(
+                              'I verify that truck inventory is loaded and the vehicle is departing now.',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.emeraldGreen),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: isChecked ? () async {
+                        Navigator.pop(ctx);
+                        await provider.startTripWithVerification();
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('🚀 Trip Started! Active route execution underway.'),
+                              backgroundColor: AppTheme.emeraldGreen,
+                            ),
+                          );
+                        }
+                      } : null,
+                      icon: const Icon(Icons.play_arrow_rounded, color: Colors.white),
+                      label: const Text('Confirm & Start Trip Now', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.emeraldGreen,
+                        disabledBackgroundColor: Colors.grey.withValues(alpha: 0.3),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showEndTripVerificationModal(BuildContext context, DeliveryProvider provider) {
+    if (provider.activeTrip == null) return;
+    final trip = provider.activeTrip!;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    bool isChecked = false;
+    final completedVisits = provider.shops.where((s) => s.deliveryStatus == 'DELIVERED' || s.salesStatus == 'SOLD').length;
+    final totalShops = provider.shops.length;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.fromLTRB(20, 16, 20, MediaQuery.of(context).viewInsets.bottom + 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.purple.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.check_circle_rounded, color: Colors.purple, size: 24),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Verify & End Sales Route Trip',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? Colors.white : Colors.black87,
+                              ),
+                            ),
+                            Text(
+                              'Trip #${trip.tripNumber} Reconciliation',
+                              style: const TextStyle(fontSize: 12, color: Colors.purple, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: isDark ? AppTheme.slateBorder : Colors.black12),
+                    ),
+                    child: Column(
+                      children: [
+                        _buildVerificationRow('Completed Visits:', '$completedVisits / $totalShops Shops', isDark),
+                        const SizedBox(height: 8),
+                        _buildVerificationRow('Delivered Stock:', '${trip.totalSoldQuantity} Pkts', isDark),
+                        const SizedBox(height: 8),
+                        _buildVerificationRow('Remaining Truck Returns:', '${provider.totalRemainingPkts} Pkts returning', isDark, isHighlight: true),
+                        const SizedBox(height: 8),
+                        _buildVerificationRow('Collected Cash / UPI:', '₹${provider.totalSalesCollection.toStringAsFixed(0)}', isDark, isHighlight: true),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  InkWell(
+                    onTap: () => setModalState(() => isChecked = !isChecked),
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.purple.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.purple.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          Checkbox(
+                            value: isChecked,
+                            onChanged: (val) => setModalState(() => isChecked = val ?? false),
+                            activeColor: Colors.purple,
+                          ),
+                          const Expanded(
+                            child: Text(
+                              'I verify that all shop deliveries, invoices, and collected payments are finalized for return reconciliation.',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.purple),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: isChecked ? () async {
+                        Navigator.pop(ctx);
+                        await provider.endTripWithVerification();
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('🏁 Trip Completed & Reconciled!'),
+                              backgroundColor: Colors.purple,
+                            ),
+                          );
+                        }
+                      } : null,
+                      icon: const Icon(Icons.check_circle_rounded, color: Colors.white),
+                      label: const Text('Confirm & End Trip Now', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.purple,
+                        disabledBackgroundColor: Colors.grey.withValues(alpha: 0.3),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildVerificationRow(String label, String value, bool isDark, {bool isHighlight = false}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: isDark ? Colors.white60 : Colors.black54,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 12,
+            color: isHighlight
+                ? (isDark ? AppTheme.reactCyan : AppTheme.reactIndigo)
+                : (isDark ? Colors.white : Colors.black87),
+            fontWeight: isHighlight ? FontWeight.bold : FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
   void _showLiveTripStatusPicker(BuildContext context, DeliveryProvider provider) {
     if (provider.activeTrip == null) return;
     
@@ -93,7 +417,7 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen> {
                 context,
                 provider,
                 statusKey: 'IN_PROGRESS',
-                title: 'IN PROGRESS (In Transit 🚚)',
+                title: 'IN PROGRESS (In Transit 🚚 - Verified Start)',
                 icon: Icons.local_shipping_rounded,
                 color: AppTheme.emeraldGreen,
                 isSelected: currentStatus == 'IN_PROGRESS' || currentStatus == 'IN TRANSIT',
@@ -111,7 +435,7 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen> {
                 context,
                 provider,
                 statusKey: 'COMPLETED',
-                title: 'COMPLETED (All Deliveries Done ✓)',
+                title: 'COMPLETED (End & Settle Trip ✓)',
                 icon: Icons.check_circle_rounded,
                 color: Colors.purple,
                 isSelected: currentStatus == 'COMPLETED',
@@ -139,18 +463,24 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen> {
       child: InkWell(
         onTap: () async {
           Navigator.pop(context);
-          final success = await provider.updateTripStatus(statusKey);
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  success
-                      ? '✓ Live trip status updated to $statusKey'
-                      : 'Trip status set to $statusKey (offline mode)',
+          if (statusKey == 'IN_PROGRESS') {
+            _showStartTripVerificationModal(context, provider);
+          } else if (statusKey == 'COMPLETED') {
+            _showEndTripVerificationModal(context, provider);
+          } else {
+            final success = await provider.updateTripStatus(statusKey);
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    success
+                        ? '✓ Live trip status updated to $statusKey'
+                        : 'Trip status set to $statusKey (offline mode)',
+                  ),
+                  backgroundColor: color,
                 ),
-                backgroundColor: color,
-              ),
-            );
+              );
+            }
           }
         },
         borderRadius: BorderRadius.circular(12),
@@ -583,7 +913,69 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen> {
                                 spacing: 8,
                                 runSpacing: 6,
                                 children: [
-                                  // Live Status Button on Dashboard Banner
+                                  // Explicit Start Trip Button (if not yet started)
+                                  if (provider.activeTrip != null && provider.activeTrip?.status != 'IN_PROGRESS' && provider.activeTrip?.status != 'IN TRANSIT' && provider.activeTrip?.status != 'COMPLETED')
+                                    GestureDetector(
+                                      onTap: () => _showStartTripVerificationModal(context, provider),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.emeraldGreen,
+                                          borderRadius: BorderRadius.circular(8),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: AppTheme.emeraldGreen.withValues(alpha: 0.4),
+                                              blurRadius: 6,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: const Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(Icons.play_arrow_rounded, size: 15, color: Colors.white),
+                                            SizedBox(width: 4),
+                                            Text(
+                                              '▶ Start Trip (Verify)',
+                                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+
+                                  // Explicit End Trip Button (if in progress)
+                                  if (provider.activeTrip != null && (provider.activeTrip?.status == 'IN_PROGRESS' || provider.activeTrip?.status == 'IN TRANSIT'))
+                                    GestureDetector(
+                                      onTap: () => _showEndTripVerificationModal(context, provider),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                        decoration: BoxDecoration(
+                                          color: Colors.purple,
+                                          borderRadius: BorderRadius.circular(8),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.purple.withValues(alpha: 0.4),
+                                              blurRadius: 6,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: const Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(Icons.check_circle_rounded, size: 15, color: Colors.white),
+                                            SizedBox(width: 4),
+                                            Text(
+                                              '🏁 End & Settle Trip',
+                                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+
+                                  // Live Status Picker Button on Dashboard Banner
                                   GestureDetector(
                                     onTap: () {
                                       if (provider.activeTrip != null) {
@@ -596,19 +988,11 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen> {
                                       }
                                     },
                                     child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                       decoration: BoxDecoration(
-                                        color: (provider.activeTrip?.status == 'IN_PROGRESS' || provider.activeTrip?.status == 'IN TRANSIT')
-                                            ? AppTheme.reactCyan
-                                            : (provider.activeTrip?.status == 'COMPLETED' ? AppTheme.emeraldGreen : AppTheme.emeraldGreen),
+                                        color: isDark ? AppTheme.slateSurface : const Color(0xFFE2E8F0),
                                         borderRadius: BorderRadius.circular(8),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: AppTheme.emeraldGreen.withValues(alpha: 0.3),
-                                            blurRadius: 6,
-                                            offset: const Offset(0, 2),
-                                          ),
-                                        ],
+                                        border: Border.all(color: isDark ? AppTheme.slateBorder : Colors.black12),
                                       ),
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
@@ -616,20 +1000,14 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen> {
                                           Icon(
                                             (provider.activeTrip?.status == 'IN_PROGRESS' || provider.activeTrip?.status == 'IN TRANSIT')
                                                 ? Icons.local_shipping_rounded
-                                                : (provider.activeTrip?.status == 'COMPLETED' ? Icons.check_circle_rounded : Icons.play_arrow_rounded),
-                                            size: 14,
-                                            color: Colors.white,
+                                                : (provider.activeTrip?.status == 'COMPLETED' ? Icons.check_circle_rounded : Icons.swap_calls_rounded),
+                                            size: 13,
+                                            color: isDark ? Colors.white70 : Colors.black87,
                                           ),
                                           const SizedBox(width: 4),
                                           Text(
-                                            (provider.activeTrip?.status == 'IN_PROGRESS' || provider.activeTrip?.status == 'IN TRANSIT')
-                                                ? 'Status: IN TRANSIT 🚚 (Tap to Change)'
-                                                : (provider.activeTrip?.status == 'COMPLETED'
-                                                    ? '✓ Trip Completed (Tap to Change)'
-                                                    : (provider.activeTrip?.status == 'PAUSED'
-                                                        ? '⏸️ Trip Paused (Tap to Change)'
-                                                        : 'Start / Change Live Status ⚡')),
-                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                                            'Status: ${provider.activeTrip?.status ?? "DRAFT"} ⚡',
+                                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isDark ? Colors.white70 : Colors.black87),
                                           ),
                                         ],
                                       ),
