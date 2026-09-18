@@ -174,112 +174,140 @@ export const FinanceDashboardPage: React.FC = () => {
       </div>
 
       {/* Top Financial KPI Metrics Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
         {/* Sales Revenue */}
-        <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-[#F0F2F5] dark:border-slate-700 shadow-xs space-y-3 overflow-hidden">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 sm:p-6 border border-slate-100 dark:border-slate-700/80 shadow-xs flex flex-col justify-between min-h-[140px] transition-all hover:shadow-sm">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#8C8C8C] dark:text-slate-400 truncate">
-              {selectedPeriod === 'TODAY' ? "Today's Sales" : `${selectedPeriod.replace('_', ' ')} Sales`}
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
+              {selectedPeriod === 'MTD' ? 'MTD SALES' : `${selectedPeriod.replace('_', ' ')} SALES`}
             </span>
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/20">
+            <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-500 dark:text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-100 dark:border-emerald-800/40">
               <TrendingUp className="w-4.5 h-4.5" />
             </div>
           </div>
-          <div className="space-y-1">
-            <div className="text-2xl font-extrabold text-[#1C1C1C] dark:text-white leading-none font-mono">₹{periodSales.toLocaleString()}</div>
-            <div className="text-[11px] text-emerald-600 font-semibold pt-0.5 flex items-center gap-1">
+          <div className="space-y-1.5 mt-2">
+            <div className="text-3xl font-extrabold text-slate-900 dark:text-white leading-none font-mono">
+              ₹{periodSales.toLocaleString()}
+            </div>
+            <div className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
               <ArrowUpRight className="w-3.5 h-3.5" /> Invoiced B2B Sales
             </div>
           </div>
         </div>
 
         {/* Purchases */}
-        <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-[#F0F2F5] dark:border-slate-700 shadow-xs space-y-3 overflow-hidden">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 sm:p-6 border border-slate-100 dark:border-slate-700/80 shadow-xs flex flex-col justify-between min-h-[140px] transition-all hover:shadow-sm">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#8C8C8C] dark:text-slate-400 truncate">
-              {selectedPeriod === 'TODAY' ? "Today's Purchases" : `${selectedPeriod.replace('_', ' ')} Purchases`}
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
+              {selectedPeriod === 'MTD' ? 'MTD PURCHASES' : `${selectedPeriod.replace('_', ' ')} PURCHASES`}
             </span>
-            <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 border border-blue-500/20">
+            <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-500 dark:text-blue-400 flex items-center justify-center shrink-0 border border-blue-100 dark:border-blue-800/40">
               <ShoppingBag className="w-4.5 h-4.5" />
             </div>
           </div>
-          <div className="space-y-1">
-            <div className="text-2xl font-extrabold text-[#1C1C1C] dark:text-white leading-none font-mono">₹{periodPurchases.toLocaleString()}</div>
-            <div className="text-[11px] text-blue-600 font-semibold pt-0.5">Raw Material Flour Bills</div>
+          <div className="space-y-1.5 mt-2">
+            <div className="text-3xl font-extrabold text-slate-900 dark:text-white leading-none font-mono">
+              ₹{periodPurchases.toLocaleString()}
+            </div>
+            <div className="text-xs text-blue-600 dark:text-blue-400 font-semibold">
+              Raw Material Flour Bills
+            </div>
           </div>
         </div>
 
         {/* Cash Drawer Balance */}
-        <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-[#F0F2F5] dark:border-slate-700 shadow-xs space-y-3 overflow-hidden">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 sm:p-6 border border-slate-100 dark:border-slate-700/80 shadow-xs flex flex-col justify-between min-h-[140px] transition-all hover:shadow-sm">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#8C8C8C] dark:text-slate-400 truncate">Cash Drawer Treasury</span>
-            <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 border border-amber-500/20">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
+              CASH DRAWER TREASURY
+            </span>
+            <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-500 dark:text-amber-400 flex items-center justify-center shrink-0 border border-amber-100 dark:border-amber-800/40">
               <Wallet className="w-4.5 h-4.5" />
             </div>
           </div>
-          <div className="space-y-1">
-            <div className="text-2xl font-extrabold text-[#1C1C1C] dark:text-white leading-none font-mono">₹{cashBal.toLocaleString()}</div>
-            <div className="text-[11px] text-amber-600 font-semibold pt-0.5">Physical Cash on Hand</div>
+          <div className="space-y-1.5 mt-2">
+            <div className="text-3xl font-extrabold text-slate-900 dark:text-white leading-none font-mono">
+              ₹{cashBal.toLocaleString()}
+            </div>
+            <div className="text-xs text-amber-600 dark:text-amber-400 font-semibold">
+              Physical Cash on Hand
+            </div>
           </div>
         </div>
 
         {/* Bank Account Balance */}
-        <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-[#F0F2F5] dark:border-slate-700 shadow-xs space-y-3 overflow-hidden">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 sm:p-6 border border-slate-100 dark:border-slate-700/80 shadow-xs flex flex-col justify-between min-h-[140px] transition-all hover:shadow-sm">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#8C8C8C] dark:text-slate-400 truncate">HDFC Bank Treasury</span>
-            <div className="w-9 h-9 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-500/20">
-              <Building className="w-4.5 h-4.5" />
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
+              HDFC BANK TREASURY
+            </span>
+            <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-500 dark:text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-100 dark:border-indigo-800/40">
+              <Building2 className="w-4.5 h-4.5" />
             </div>
           </div>
-          <div className="space-y-1">
-            <div className="text-2xl font-extrabold text-[#1C1C1C] dark:text-white leading-none font-mono">₹{bankBal.toLocaleString()}</div>
-            <div className="text-[11px] text-indigo-600 font-semibold pt-0.5">100% Reconciled</div>
+          <div className="space-y-1.5 mt-2">
+            <div className="text-3xl font-extrabold text-slate-900 dark:text-white leading-none font-mono">
+              ₹{bankBal.toLocaleString()}
+            </div>
+            <div className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold">
+              100% Reconciled
+            </div>
           </div>
         </div>
       </div>
 
       {/* Outstanding & Net Profit Summary Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
         {/* Customer Accounts Receivable Card */}
-        <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-[#F0F2F5] dark:border-slate-700 shadow-2xs space-y-3">
-          <div className="flex justify-between items-center border-b border-[#ECEFF2] dark:border-slate-800 pb-3">
-            <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#8C8C8C]">Customer Receivables (A/R)</span>
-            <span className="text-[10px] font-extrabold px-2 py-0.5 bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20 rounded-full">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 sm:p-6 border border-slate-100 dark:border-slate-700/80 shadow-xs space-y-3 flex flex-col justify-between">
+          <div className="flex justify-between items-center gap-2">
+            <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              CUSTOMER RECEIVABLES (A/R)
+            </span>
+            <span className="text-[10px] font-extrabold px-3 py-0.5 bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-200/80 dark:border-amber-700/50 rounded-full shrink-0">
               Credit Outstanding
             </span>
           </div>
-          <h3 className="text-3xl font-black text-amber-600 dark:text-amber-400 font-mono">₹{custOut.toLocaleString()}</h3>
-          <p className="text-xs text-[#8C8C8C] dark:text-slate-400 leading-relaxed">
+          <div className="text-3xl font-extrabold text-amber-500 dark:text-amber-400 font-mono tracking-tight">
+            ₹{custOut.toLocaleString()}
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
             Total credit balance owed by retail shops and wholesale distributors.
           </p>
         </div>
 
         {/* Supplier Accounts Payable Card */}
-        <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-[#F0F2F5] dark:border-slate-700 shadow-2xs space-y-3">
-          <div className="flex justify-between items-center border-b border-[#ECEFF2] dark:border-slate-800 pb-3">
-            <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#8C8C8C]">Supplier Payables (A/P)</span>
-            <span className="text-[10px] font-extrabold px-2 py-0.5 bg-red-500/10 text-red-700 dark:text-red-300 border border-red-500/20 rounded-full">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 sm:p-6 border border-slate-100 dark:border-slate-700/80 shadow-xs space-y-3 flex flex-col justify-between">
+          <div className="flex justify-between items-center gap-2">
+            <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              SUPPLIER PAYABLES (A/P)
+            </span>
+            <span className="text-[10px] font-extrabold px-3 py-0.5 bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300 border border-rose-200/80 dark:border-rose-700/50 rounded-full shrink-0">
               Vendor Liability
             </span>
           </div>
-          <h3 className="text-3xl font-black text-red-600 dark:text-red-400 font-mono">₹{supOut.toLocaleString()}</h3>
-          <p className="text-xs text-[#8C8C8C] dark:text-slate-400 leading-relaxed">
+          <div className="text-3xl font-extrabold text-rose-600 dark:text-rose-400 font-mono tracking-tight">
+            ₹{supOut.toLocaleString()}
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
             Total outstanding balance owed to raw material suppliers and packaging vendors.
           </p>
         </div>
 
         {/* Net Profit Summary Card */}
-        <div className="bg-gradient-to-br from-indigo-950 to-slate-900 text-white p-5 rounded-2xl shadow-md space-y-3 border border-indigo-900/50">
-          <div className="flex justify-between items-center border-b border-indigo-800/60 pb-3">
-            <span className="text-[11px] font-extrabold uppercase tracking-wider text-indigo-300">
-              Estimated Net Profit ({selectedPeriod})
+        <div className="bg-[#0F172A] text-white rounded-2xl p-5 sm:p-6 border border-slate-800/80 shadow-md space-y-3 flex flex-col justify-between">
+          <div className="flex justify-between items-center gap-2">
+            <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-300">
+              ESTIMATED NET PROFIT ({selectedPeriod})
             </span>
-            <span className="text-[10px] font-extrabold px-2 py-0.5 bg-emerald-500/20 text-emerald-300 rounded-full border border-emerald-500/30">
+            <span className="text-[10px] font-extrabold px-3 py-0.5 bg-[#064E3B]/70 text-[#34D399] border border-emerald-500/30 rounded-full shrink-0">
               {netMargin}% Margin
             </span>
           </div>
-          <h3 className="text-3xl font-black text-emerald-400 font-mono">₹{netProf.toLocaleString()}</h3>
-          <div className="flex justify-between text-xs text-indigo-200 font-semibold font-mono">
+          <div className="text-3xl font-black text-[#10B981] font-mono tracking-tight">
+            ₹{netProf.toLocaleString()}
+          </div>
+          <div className="flex justify-between items-center text-xs text-slate-400 font-semibold font-mono pt-1">
             <span>Gross: ₹{grossProf.toLocaleString()} ({grossMargin}%)</span>
             <span>OPEX: ₹{(data?.monthlyExpenses ?? 0).toLocaleString()}</span>
           </div>
@@ -287,39 +315,42 @@ export const FinanceDashboardPage: React.FC = () => {
       </div>
 
       {/* Working Capital Indicator Banner */}
-      <div className="p-4 bg-slate-900 text-white rounded-2xl border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-md">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
+      <div className="p-5 bg-[#0F172A] text-white rounded-2xl border border-slate-800/80 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-md">
+        <div className="flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-xl bg-blue-600/20 text-blue-400 border border-blue-500/30 flex items-center justify-center shrink-0">
             <Scale className="w-5 h-5" />
           </div>
           <div>
-            <h4 className="text-xs font-extrabold uppercase tracking-wider text-blue-300">
-              Net Working Capital Position: ₹{workingCapital.toLocaleString()}
+            <h4 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-white">
+              NET WORKING CAPITAL POSITION: ₹{workingCapital.toLocaleString()}
             </h4>
-            <p className="text-[11px] text-slate-400">
+            <p className="text-xs text-slate-400 mt-0.5 leading-normal">
               Liquid Current Assets (Cash, Bank, A/R & Stock Valuations) exceeding Current Supplier Payables.
             </p>
           </div>
         </div>
         <button
           onClick={() => navigate('/financial-reports')}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs transition cursor-pointer shrink-0"
+          className="px-5 py-2.5 bg-[#2563EB] hover:bg-blue-600 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition cursor-pointer shrink-0 shadow-sm"
         >
-          View Full Balance Sheet Statement ➔
+          View Full Balance Sheet Statement →
         </button>
       </div>
 
       {/* Expense Category Breakdown & Recent Transactions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
         {/* Expense Category Breakdown */}
-        <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-[#F0F2F5] dark:border-slate-700 shadow-2xs space-y-4">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 sm:p-6 border border-slate-100 dark:border-slate-700/80 shadow-xs space-y-4">
           <div className="flex justify-between items-center">
-            <h3 className="text-xs font-extrabold text-[#1C1C1C] dark:text-white uppercase tracking-wider flex items-center gap-2">
+            <h3 className="text-xs font-extrabold text-slate-800 dark:text-white uppercase tracking-wider flex items-center gap-2">
               <PieChartIcon className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-              Expense Category Breakdown ({selectedPeriod})
+              EXPENSE CATEGORY BREAKDOWN ({selectedPeriod})
             </h3>
-            <button onClick={() => navigate('/expenses')} className="text-[11px] font-bold text-blue-600 hover:underline">
-              View All ➔
+            <button 
+              onClick={() => navigate('/expenses')} 
+              className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-0.5 transition cursor-pointer"
+            >
+              View All →
             </button>
           </div>
 
@@ -341,20 +372,25 @@ export const FinanceDashboardPage: React.FC = () => {
                 );
               })
             ) : (
-              <div className="text-[#8C8C8C] py-4 text-center">No expense logs recorded for this period.</div>
+              <div className="text-slate-400 dark:text-slate-500 py-8 text-center text-xs">
+                No expense logs recorded for this period.
+              </div>
             )}
           </div>
         </div>
 
         {/* Recent Financial Transactions Audit Trail */}
-        <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-[#F0F2F5] dark:border-slate-700 shadow-2xs space-y-4">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 sm:p-6 border border-slate-100 dark:border-slate-700/80 shadow-xs space-y-4">
           <div className="flex justify-between items-center">
-            <h3 className="text-xs font-extrabold text-[#1C1C1C] dark:text-white uppercase tracking-wider flex items-center gap-2">
+            <h3 className="text-xs font-extrabold text-slate-800 dark:text-white uppercase tracking-wider flex items-center gap-2">
               <Receipt className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              Recent Financial Transactions Audit Trail
+              RECENT FINANCIAL TRANSACTIONS AUDIT TRAIL
             </h3>
-            <button onClick={() => navigate('/financial-reports')} className="text-[11px] font-bold text-blue-600 hover:underline">
-              Journal ➔
+            <button 
+              onClick={() => navigate('/financial-reports')} 
+              className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-0.5 transition cursor-pointer"
+            >
+              Journal →
             </button>
           </div>
 
@@ -375,7 +411,9 @@ export const FinanceDashboardPage: React.FC = () => {
                 );
               })
             ) : (
-              <div className="text-[#8C8C8C] py-4 text-center">No recent financial transactions found.</div>
+              <div className="text-slate-400 dark:text-slate-500 py-8 text-center text-xs">
+                No recent financial transactions found.
+              </div>
             )}
           </div>
         </div>

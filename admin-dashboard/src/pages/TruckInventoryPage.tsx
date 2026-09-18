@@ -1,18 +1,18 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Truck, 
-  Package, 
-  Check, 
-  Zap, 
-  Search, 
-  RefreshCw, 
-  Gauge, 
-  Phone, 
-  ShieldCheck, 
-  ChevronRight, 
-  CheckCircle2, 
-  X, 
+import {
+  Truck,
+  Package,
+  Check,
+  Zap,
+  Search,
+  RefreshCw,
+  Gauge,
+  Phone,
+  ShieldCheck,
+  ChevronRight,
+  CheckCircle2,
+  X,
   TrendingUp,
   Sparkles,
   List,
@@ -24,20 +24,20 @@ import {
   Fuel,
   FileCheck
 } from 'lucide-react';
-import { 
-  inventoryApi, 
-  productApi, 
-  employeeApi, 
-  salesExecutiveApi, 
-  routeApi, 
+import {
+  inventoryApi,
+  productApi,
+  employeeApi,
+  salesExecutiveApi,
+  routeApi,
   dispatchGroupApi,
   DispatchGroupDTO,
   FinishedGoodsItemDTO,
-  ApiProduct, 
-  TruckInventoryDTO, 
-  ApiEmployee, 
-  ApiSalesExecutive, 
-  ApiDeliveryRoute 
+  ApiProduct,
+  TruckInventoryDTO,
+  ApiEmployee,
+  ApiSalesExecutive,
+  ApiDeliveryRoute
 } from '../services/apiService';
 import { CustomSelect, Toast } from '../components/common';
 
@@ -293,8 +293,8 @@ export const TruckInventoryPage: React.FC = () => {
   };
 
   const handlePackagingQtyChange = (
-    productId: number, 
-    field: 'boxCount' | 'bundleCount' | 'coverCount' | 'tinCount' | 'looseUnits', 
+    productId: number,
+    field: 'boxCount' | 'bundleCount' | 'coverCount' | 'tinCount' | 'looseUnits',
     val: number
   ) => {
     const matchingFGs = finishedGoods.filter(fg => fg.productId === productId && fg.quantityAvailable > 0);
@@ -324,7 +324,7 @@ export const TruckInventoryPage: React.FC = () => {
         return prev;
       }
 
-      setRefillItems(oldItems => oldItems.map(item => 
+      setRefillItems(oldItems => oldItems.map(item =>
         item.productId === productId ? { ...item, quantity: totalUnits } : item
       ));
 
@@ -474,7 +474,7 @@ export const TruckInventoryPage: React.FC = () => {
   // Filtered Trucks
   const filteredTrucks = useMemo(() => {
     return truckInventories.filter(truck => {
-      const matchesSearch = 
+      const matchesSearch =
         truck.vehicleNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
         truck.assignedDriver.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (truck.assignedRoute && truck.assignedRoute.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -544,7 +544,7 @@ export const TruckInventoryPage: React.FC = () => {
               onClick={() => handleOpenTruckRefill()}
               className="px-4 py-2 bg-[#1C1C1C] dark:bg-amber-600 hover:bg-black dark:hover:bg-amber-500 text-white font-bold rounded-xl text-xs transition flex items-center gap-2 shadow-xs cursor-pointer active:scale-95"
             >
-              <Zap className="w-4 h-4" /> + Refill & Load Delivery Truck
+              <Zap className="w-4 h-4" /> Refill & Load Delivery Truck
             </button>
           </div>
         </div>
@@ -641,9 +641,9 @@ export const TruckInventoryPage: React.FC = () => {
             {totalFleetCapacity}%
           </p>
           <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-            <div 
-              className="h-full bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full" 
-              style={{ width: `${Math.min(100, totalFleetCapacity)}%` }} 
+            <div
+              className="h-full bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full"
+              style={{ width: `${Math.min(100, totalFleetCapacity)}%` }}
             />
           </div>
         </div>
@@ -657,22 +657,20 @@ export const TruckInventoryPage: React.FC = () => {
           <div className="flex items-center p-1 bg-[#F4F5F7] dark:bg-slate-900 rounded-2xl border border-[#E9ECEF] dark:border-slate-800 shrink-0">
             <button
               onClick={() => setViewMode('table')}
-              className={`p-2 rounded-xl transition cursor-pointer ${
-                viewMode === 'table'
+              className={`p-2 rounded-xl transition cursor-pointer ${viewMode === 'table'
                   ? 'bg-white dark:bg-slate-800 text-[#1C1C1C] dark:text-white shadow-xs'
                   : 'text-[#8C8C8C] dark:text-slate-400 hover:text-[#1C1C1C] dark:hover:text-white'
-              }`}
+                }`}
               title="Table View"
             >
               <List className="w-4 h-4" />
             </button>
             <button
               onClick={() => setViewMode('grid')}
-              className={`p-2 rounded-xl transition cursor-pointer ${
-                viewMode === 'grid'
+              className={`p-2 rounded-xl transition cursor-pointer ${viewMode === 'grid'
                   ? 'bg-white dark:bg-slate-800 text-[#1C1C1C] dark:text-white shadow-xs'
                   : 'text-[#8C8C8C] dark:text-slate-400 hover:text-[#1C1C1C] dark:hover:text-white'
-              }`}
+                }`}
               title="Grid Cards View"
             >
               <LayoutGrid className="w-4 h-4" />
@@ -695,11 +693,10 @@ export const TruckInventoryPage: React.FC = () => {
               <button
                 key={f.key}
                 onClick={() => setStatusFilter(f.key as any)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
-                  statusFilter === f.key
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${statusFilter === f.key
                     ? 'bg-[#1C1C1C] dark:bg-white text-white dark:text-slate-900 shadow-xs font-black'
                     : 'bg-[#F4F5F7] dark:bg-slate-700/70 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
-                }`}
+                  }`}
               >
                 {f.label}
               </button>
@@ -803,11 +800,10 @@ export const TruckInventoryPage: React.FC = () => {
                             <span className="font-bold">{truck.payloadCapacityPercentage}%</span>
                           </div>
                           <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                            <div 
-                              className={`h-full rounded-full transition-all ${
-                                isOverloaded ? 'bg-rose-500' : isNearCapacity ? 'bg-amber-500' : 'bg-purple-600'
-                              }`} 
-                              style={{ width: `${Math.min(100, truck.payloadCapacityPercentage)}%` }} 
+                            <div
+                              className={`h-full rounded-full transition-all ${isOverloaded ? 'bg-rose-500' : isNearCapacity ? 'bg-amber-500' : 'bg-purple-600'
+                                }`}
+                              style={{ width: `${Math.min(100, truck.payloadCapacityPercentage)}%` }}
                             />
                           </div>
                         </td>
@@ -865,175 +861,174 @@ export const TruckInventoryPage: React.FC = () => {
 
       {/* ─── VIEW 2: DETAILED CARDS GRID VIEW ────────────────────────────── */}
       {viewMode === 'grid' && (
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {filteredTrucks.length === 0 ? (
-          <div className="col-span-2 py-16 text-center bg-white dark:bg-slate-800 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700">
-            <Truck className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
-            <p className="text-sm font-bold text-slate-700 dark:text-slate-300">No Fleet Trucks Found</p>
-            <p className="text-xs text-slate-400 mt-1">Onboard vehicles in Vehicle Onboarding to begin tracking truck inventory</p>
-          </div>
-        ) : (
-          filteredTrucks.map(truck => {
-            const isOverloaded = truck.payloadCapacityPercentage > 100;
-            const isNearCapacity = truck.payloadCapacityPercentage > 85;
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          {filteredTrucks.length === 0 ? (
+            <div className="col-span-2 py-16 text-center bg-white dark:bg-slate-800 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700">
+              <Truck className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+              <p className="text-sm font-bold text-slate-700 dark:text-slate-300">No Fleet Trucks Found</p>
+              <p className="text-xs text-slate-400 mt-1">Onboard vehicles in Vehicle Onboarding to begin tracking truck inventory</p>
+            </div>
+          ) : (
+            filteredTrucks.map(truck => {
+              const isOverloaded = truck.payloadCapacityPercentage > 100;
+              const isNearCapacity = truck.payloadCapacityPercentage > 85;
 
-            return (
-              <div
-                key={truck.vehicleId}
-                className="bg-white dark:bg-slate-800 rounded-3xl border border-[#F0F2F5] dark:border-slate-700 shadow-2xs hover:shadow-md transition p-6 flex flex-col justify-between space-y-5"
-              >
-                {/* Truck Header */}
-                <div>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-2xl bg-purple-50 dark:bg-purple-900/40 border border-purple-200 dark:border-purple-800 flex items-center justify-center text-purple-600 dark:text-purple-400 font-bold shrink-0">
-                        <Truck className="w-6 h-6" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-base font-black font-mono text-slate-900 dark:text-white">
-                            {truck.vehicleNumber}
-                          </h3>
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-mono">
-                            {truck.model}
-                          </span>
+              return (
+                <div
+                  key={truck.vehicleId}
+                  className="bg-white dark:bg-slate-800 rounded-3xl border border-[#F0F2F5] dark:border-slate-700 shadow-2xs hover:shadow-md transition p-6 flex flex-col justify-between space-y-5"
+                >
+                  {/* Truck Header */}
+                  <div>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-2xl bg-purple-50 dark:bg-purple-900/40 border border-purple-200 dark:border-purple-800 flex items-center justify-center text-purple-600 dark:text-purple-400 font-bold shrink-0">
+                          <Truck className="w-6 h-6" />
                         </div>
-                        <div className="flex items-center gap-3 text-xs text-slate-400 mt-1">
-                          <span>Driver: <strong className="text-slate-700 dark:text-slate-200">{truck.assignedDriver}</strong></span>
-                          {truck.driverPhone && (
-                            <span className="flex items-center gap-1 text-[11px] font-mono text-slate-500">
-                              <Phone className="w-3 h-3" /> {truck.driverPhone}
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-base font-black font-mono text-slate-900 dark:text-white">
+                              {truck.vehicleNumber}
+                            </h3>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-mono">
+                              {truck.model}
                             </span>
-                          )}
+                          </div>
+                          <div className="flex items-center gap-3 text-xs text-slate-400 mt-1">
+                            <span>Driver: <strong className="text-slate-700 dark:text-slate-200">{truck.assignedDriver}</strong></span>
+                            {truck.driverPhone && (
+                              <span className="flex items-center gap-1 text-[11px] font-mono text-slate-500">
+                                <Phone className="w-3 h-3" /> {truck.driverPhone}
+                              </span>
+                            )}
+                          </div>
                         </div>
+                      </div>
+
+                      <div className="text-right">
+                        <span className="text-xs font-black font-mono text-slate-900 dark:text-white block">
+                          ₹{truck.totalStockValue.toLocaleString()}
+                        </span>
+                        <span className="text-[10px] text-slate-400">On-Board Stock Value</span>
                       </div>
                     </div>
 
-                    <div className="text-right">
-                      <span className="text-xs font-black font-mono text-slate-900 dark:text-white block">
-                        ₹{truck.totalStockValue.toLocaleString()}
+                    {/* Route & Trip Badge */}
+                    <div className="mt-3 flex items-center gap-2 text-xs flex-wrap">
+                      <span className="px-2.5 py-1 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 font-bold text-[11px] flex items-center gap-1">
+                        🗺️ {truck.assignedRoute || 'Route 1 - Gandhipuram Central'}
                       </span>
-                      <span className="text-[10px] text-slate-400">On-Board Stock Value</span>
+                      <span className="px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-[11px]">
+                        Trip #{truck.tripNumber}
+                      </span>
+                    </div>
+
+                    {/* Payload Utilization Bar */}
+                    <div className="mt-3 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 space-y-1.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                          <Gauge className="w-3.5 h-3.5 text-purple-500" />
+                          Payload Weight Utilization
+                        </span>
+                        <span className="font-mono font-bold text-slate-900 dark:text-white">
+                          {truck.totalWeightKg} kg / {truck.capacityKg} kg ({truck.payloadCapacityPercentage}%)
+                        </span>
+                      </div>
+
+                      <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${isOverloaded ? 'bg-rose-500' : isNearCapacity ? 'bg-amber-500' : 'bg-purple-600'
+                            }`}
+                          style={{ width: `${Math.min(100, truck.payloadCapacityPercentage)}%` }}
+                        />
+                      </div>
                     </div>
                   </div>
 
-                  {/* Route & Trip Badge */}
-                  <div className="mt-3 flex items-center gap-2 text-xs flex-wrap">
-                    <span className="px-2.5 py-1 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 font-bold text-[11px] flex items-center gap-1">
-                      🗺️ {truck.assignedRoute || 'Route 1 - Gandhipuram Central'}
-                    </span>
-                    <span className="px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-[11px]">
-                      Trip #{truck.tripNumber}
-                    </span>
-                  </div>
-
-                  {/* Payload Utilization Bar */}
-                  <div className="mt-3 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 space-y-1.5">
+                  {/* On-Board Products Table */}
+                  <div className="space-y-2 flex-1">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
-                        <Gauge className="w-3.5 h-3.5 text-purple-500" />
-                        Payload Weight Utilization
-                      </span>
-                      <span className="font-mono font-bold text-slate-900 dark:text-white">
-                        {truck.totalWeightKg} kg / {truck.capacityKg} kg ({truck.payloadCapacityPercentage}%)
+                      <span className="font-extrabold text-slate-900 dark:text-white">
+                        Current Stock on Truck ({truck.totalAvailableUnits} loaves)
                       </span>
                     </div>
 
-                    <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all duration-500 ${
-                          isOverloaded ? 'bg-rose-500' : isNearCapacity ? 'bg-amber-500' : 'bg-purple-600'
-                        }`}
-                        style={{ width: `${Math.min(100, truck.payloadCapacityPercentage)}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* On-Board Products Table */}
-                <div className="space-y-2 flex-1">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-extrabold text-slate-900 dark:text-white">
-                      Current Stock on Truck ({truck.totalAvailableUnits} loaves)
-                    </span>
-                  </div>
-
-                  {(!truck.items || truck.items.length === 0) ? (
-                    <div className="py-6 text-center bg-slate-50 dark:bg-slate-900/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 text-xs text-slate-400">
-                      Truck is currently empty. Click <strong>"Refill Packaging"</strong> to load loaves for delivery.
-                    </div>
-                  ) : (
-                    <div className="rounded-2xl border border-slate-100 dark:border-slate-700 overflow-hidden">
-                      <table className="w-full text-left text-xs">
-                        <thead>
-                          <tr className="bg-slate-50 dark:bg-slate-900/60 text-[10px] font-bold text-slate-400 uppercase border-b border-slate-100 dark:border-slate-700">
-                            <th className="py-2 px-3">Product</th>
-                            <th className="py-2 px-3 text-center">Loaded</th>
-                            <th className="py-2 px-3 text-center">Sold</th>
-                            <th className="py-2 px-3 text-center">Avail</th>
-                            <th className="py-2 px-3 text-right">Value</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60 font-medium">
-                          {truck.items.map(item => (
-                            <tr key={item.productId} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/30">
-                              <td className="py-2 px-3 font-bold text-slate-900 dark:text-white truncate max-w-[140px]">
-                                {item.productName}
-                              </td>
-                              <td className="py-2 px-3 text-center font-mono text-slate-500">
-                                {item.loadedQuantity}
-                              </td>
-                              <td className="py-2 px-3 text-center font-mono text-emerald-600 font-bold">
-                                {item.soldQuantity}
-                              </td>
-                              <td className="py-2 px-3 text-center font-mono font-black text-purple-600 dark:text-purple-400">
-                                {item.availableQuantity}
-                              </td>
-                              <td className="py-2 px-3 text-right font-mono text-slate-700 dark:text-slate-300">
-                                ₹{item.lineTotalValue.toLocaleString()}
-                              </td>
+                    {(!truck.items || truck.items.length === 0) ? (
+                      <div className="py-6 text-center bg-slate-50 dark:bg-slate-900/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 text-xs text-slate-400">
+                        Truck is currently empty. Click <strong>"Refill Packaging"</strong> to load loaves for delivery.
+                      </div>
+                    ) : (
+                      <div className="rounded-2xl border border-slate-100 dark:border-slate-700 overflow-hidden">
+                        <table className="w-full text-left text-xs">
+                          <thead>
+                            <tr className="bg-slate-50 dark:bg-slate-900/60 text-[10px] font-bold text-slate-400 uppercase border-b border-slate-100 dark:border-slate-700">
+                              <th className="py-2 px-3">Product</th>
+                              <th className="py-2 px-3 text-center">Loaded</th>
+                              <th className="py-2 px-3 text-center">Sold</th>
+                              <th className="py-2 px-3 text-center">Avail</th>
+                              <th className="py-2 px-3 text-right">Value</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60 font-medium">
+                            {truck.items.map(item => (
+                              <tr key={item.productId} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/30">
+                                <td className="py-2 px-3 font-bold text-slate-900 dark:text-white truncate max-w-[140px]">
+                                  {item.productName}
+                                </td>
+                                <td className="py-2 px-3 text-center font-mono text-slate-500">
+                                  {item.loadedQuantity}
+                                </td>
+                                <td className="py-2 px-3 text-center font-mono text-emerald-600 font-bold">
+                                  {item.soldQuantity}
+                                </td>
+                                <td className="py-2 px-3 text-center font-mono font-black text-purple-600 dark:text-purple-400">
+                                  {item.availableQuantity}
+                                </td>
+                                <td className="py-2 px-3 text-right font-mono text-slate-700 dark:text-slate-300">
+                                  ₹{item.lineTotalValue.toLocaleString()}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Truck Action Buttons */}
+                  <div className="pt-3 border-t border-slate-100 dark:border-slate-700/80 flex items-center justify-end gap-2 flex-wrap">
+                    <button
+                      onClick={() => handleOpenTripStartGateCheck(truck)}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
+                      title="Run opening audit, refill packaging, and issue trip gate pass"
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      🚚 Daily Trip Start Gate Check
+                    </button>
+
+                    <button
+                      onClick={() => handleOpenTruckRefill(truck)}
+                      className="flex items-center gap-1.5 px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
+                      title="Refill Truck with Packaging (Boxes, Bundles, Covers & Tins)"
+                    >
+                      <Zap className="w-3.5 h-3.5" />
+                      Refill Packaging
+                    </button>
+
+                    <button
+                      onClick={() => handleOpenTruckAudit(truck)}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition cursor-pointer"
+                      title="Check Physical Stock Variance"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      Audit Count
+                    </button>
+                  </div>
                 </div>
-
-                {/* Truck Action Buttons */}
-                <div className="pt-3 border-t border-slate-100 dark:border-slate-700/80 flex items-center justify-end gap-2 flex-wrap">
-                  <button
-                    onClick={() => handleOpenTripStartGateCheck(truck)}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
-                    title="Run opening audit, refill packaging, and issue trip gate pass"
-                  >
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                    🚚 Daily Trip Start Gate Check
-                  </button>
-
-                  <button
-                    onClick={() => handleOpenTruckRefill(truck)}
-                    className="flex items-center gap-1.5 px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
-                    title="Refill Truck with Packaging (Boxes, Bundles, Covers & Tins)"
-                  >
-                    <Zap className="w-3.5 h-3.5" />
-                    Refill Packaging
-                  </button>
-
-                  <button
-                    onClick={() => handleOpenTruckAudit(truck)}
-                    className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition cursor-pointer"
-                    title="Check Physical Stock Variance"
-                  >
-                    <Check className="w-3.5 h-3.5" />
-                    Audit Count
-                  </button>
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
+              );
+            })
+          )}
+        </div>
       )}
 
       {/* ═══════════════════════════════════════════════════════════════════════ */}
@@ -1403,11 +1398,10 @@ export const TruckInventoryPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setTripStartStep(1)}
-                className={`flex-1 py-2 px-3 rounded-xl transition flex items-center justify-center gap-2 ${
-                  tripStartStep === 1
+                className={`flex-1 py-2 px-3 rounded-xl transition flex items-center justify-center gap-2 ${tripStartStep === 1
                     ? 'bg-emerald-600 text-white shadow-xs'
                     : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
-                }`}
+                  }`}
               >
                 <span>1. Check Existing Carryover</span>
               </button>
@@ -1415,11 +1409,10 @@ export const TruckInventoryPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setTripStartStep(2)}
-                className={`flex-1 py-2 px-3 rounded-xl transition flex items-center justify-center gap-2 ${
-                  tripStartStep === 2
+                className={`flex-1 py-2 px-3 rounded-xl transition flex items-center justify-center gap-2 ${tripStartStep === 2
                     ? 'bg-purple-600 text-white shadow-xs'
                     : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
-                }`}
+                  }`}
               >
                 <span>2. Manual Packaging Refill</span>
               </button>
@@ -1427,11 +1420,10 @@ export const TruckInventoryPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setTripStartStep(3)}
-                className={`flex-1 py-2 px-3 rounded-xl transition flex items-center justify-center gap-2 ${
-                  tripStartStep === 3
+                className={`flex-1 py-2 px-3 rounded-xl transition flex items-center justify-center gap-2 ${tripStartStep === 3
                     ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-xs'
                     : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
-                }`}
+                  }`}
               >
                 <span>3. Gate Pass & Sign-Off</span>
               </button>
@@ -1499,9 +1491,8 @@ export const TruckInventoryPage: React.FC = () => {
 
                             <div className="text-right w-16">
                               <span className="block text-[9px] text-slate-400 mb-0.5 font-bold">Variance</span>
-                              <span className={`text-xs font-mono font-bold ${
-                                variance === 0 ? 'text-slate-400' : variance > 0 ? 'text-emerald-600' : 'text-rose-600'
-                              }`}>
+                              <span className={`text-xs font-mono font-bold ${variance === 0 ? 'text-slate-400' : variance > 0 ? 'text-emerald-600' : 'text-rose-600'
+                                }`}>
                                 {variance > 0 ? `+${variance}` : variance}
                               </span>
                             </div>
@@ -1910,9 +1901,8 @@ export const TruckInventoryPage: React.FC = () => {
 
                         <div className="text-right w-14">
                           <span className="block text-[9px] text-slate-400 mb-0.5 font-bold">Variance</span>
-                          <span className={`text-xs font-mono font-bold ${
-                            variance === 0 ? 'text-slate-400' : variance > 0 ? 'text-emerald-600' : 'text-rose-600'
-                          }`}>
+                          <span className={`text-xs font-mono font-bold ${variance === 0 ? 'text-slate-400' : variance > 0 ? 'text-emerald-600' : 'text-rose-600'
+                            }`}>
                             {variance > 0 ? `+${variance}` : variance}
                           </span>
                         </div>

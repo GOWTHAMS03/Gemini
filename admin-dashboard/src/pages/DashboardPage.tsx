@@ -184,102 +184,112 @@ export const DashboardPage: React.FC = () => {
       </div>
 
       {/* 4 Executive KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
         {/* Today Production */}
-        <div className="bg-[#E5ECF6] dark:bg-[#1D2636] border border-transparent dark:border-[#2D3A50] rounded-2xl p-5 space-y-3 transition-all duration-200 hover:-translate-y-0.5 shadow-2xs overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-[#1C1C1C] dark:text-slate-300">Today Production</span>
-            <div className="p-2 rounded-xl bg-indigo-500/10 dark:bg-indigo-400/20 text-indigo-600 dark:text-indigo-300">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 sm:p-6 border border-slate-100 dark:border-slate-700/80 shadow-xs flex flex-col justify-between min-h-[140px] transition-all hover:shadow-sm">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
+              Today Production
+            </span>
+            <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-500 dark:text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-100 dark:border-indigo-800/40">
               <Package className="w-4.5 h-4.5" />
             </div>
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 mt-2">
             <div className="flex items-baseline gap-1.5">
-              <span className="text-2xl font-extrabold text-[#1C1C1C] dark:text-white tracking-tight">
+              <span className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight font-mono">
                 {kpis.todayProductionUnits?.toLocaleString() || 0}
               </span>
-              <span className="text-xs font-semibold text-[#8C8C8C] dark:text-slate-400">Pkts</span>
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Pkts</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 inline-flex items-center gap-0.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-800/50 inline-flex items-center gap-0.5">
                 {kpis.productionEfficiencyPercentage}% Efficiency <TrendingUp className="w-3 h-3" />
               </span>
-              <span className="text-[10px] text-[#8C8C8C] dark:text-slate-400 font-medium">Live Output</span>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Live Output</span>
             </div>
           </div>
         </div>
 
         {/* Today Invoiced Sales */}
-        <div className="bg-[#E3F5FF] dark:bg-[#152A38] border border-transparent dark:border-[#203D52] rounded-2xl p-5 space-y-3 transition-all duration-200 hover:-translate-y-0.5 shadow-2xs overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-[#1C1C1C] dark:text-slate-300">Today Invoiced Sales</span>
-            <div className="p-2 rounded-xl bg-sky-500/10 dark:bg-sky-400/20 text-sky-600 dark:text-sky-300">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 sm:p-6 border border-slate-100 dark:border-slate-700/80 shadow-xs flex flex-col justify-between min-h-[140px] transition-all hover:shadow-sm">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
+              Today Invoiced Sales
+            </span>
+            <div className="w-9 h-9 rounded-xl bg-sky-50 dark:bg-sky-950/40 text-sky-500 dark:text-sky-400 flex items-center justify-center shrink-0 border border-sky-100 dark:border-sky-800/40">
               <DollarSign className="w-4.5 h-4.5" />
             </div>
           </div>
-          <div className="space-y-1.5">
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-2xl font-extrabold text-[#1C1C1C] dark:text-white tracking-tight">
-                ₹{kpis.todaySalesRevenue?.toLocaleString() || 0}
-              </span>
+          <div className="space-y-1.5 mt-2">
+            <div className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight font-mono">
+              ₹{kpis.todaySalesRevenue?.toLocaleString() || 0}
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 inline-flex items-center gap-0.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-800/50 inline-flex items-center gap-0.5">
                 Real-time <ArrowUpRight className="w-3 h-3" />
               </span>
-              <span className="text-[10px] text-[#8C8C8C] dark:text-slate-400 font-medium">Billed Sales</span>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Billed Sales</span>
             </div>
           </div>
         </div>
 
         {/* Fleet Trucks Dispatched */}
-        <div className="bg-[#F3E8FF] dark:bg-[#281D38] border border-transparent dark:border-[#3D2C54] rounded-2xl p-5 space-y-3 transition-all duration-200 hover:-translate-y-0.5 shadow-2xs overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-[#1C1C1C] dark:text-slate-300">Fleet Trucks Dispatched</span>
-            <div className="p-2 rounded-xl bg-purple-500/10 dark:bg-purple-400/20 text-purple-600 dark:text-purple-300">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 sm:p-6 border border-slate-100 dark:border-slate-700/80 shadow-xs flex flex-col justify-between min-h-[140px] transition-all hover:shadow-sm">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
+              Fleet Trucks Dispatched
+            </span>
+            <div className="w-9 h-9 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-500 dark:text-purple-400 flex items-center justify-center shrink-0 border border-purple-100 dark:border-purple-800/40">
               <Truck className="w-4.5 h-4.5" />
             </div>
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 mt-2">
             <div className="flex items-baseline gap-1.5">
-              <span className="text-2xl font-extrabold text-[#1C1C1C] dark:text-white tracking-tight">
+              <span className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight font-mono">
                 {kpis.activeDispatchesCount || 0} Vans
               </span>
-              <span className="text-xs font-semibold text-emerald-600">
+              <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
                 {kpis.totalVehiclesCount > 0 ? `${kpis.fleetDispatchPercentage}% Active` : 'Fleet Ready'}
               </span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/15 text-purple-700 dark:text-purple-400 border border-purple-500/20 inline-flex items-center gap-0.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300 border border-purple-200/80 dark:border-purple-800/50 inline-flex items-center gap-0.5">
                 {kpis.totalVehiclesCount || 0} Total Vehicles
               </span>
-              <span className="text-[10px] text-[#8C8C8C] dark:text-slate-400 font-medium">{kpis.completedDeliveriesCount || 0} Delivered</span>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">{kpis.completedDeliveriesCount || 0} Delivered</span>
             </div>
           </div>
         </div>
 
         {/* Raw Material Reorder Alerts */}
-        <div className="bg-[#E5F2FE] dark:bg-[#1A2C3D] border border-transparent dark:border-[#263E57] rounded-2xl p-5 space-y-3 transition-all duration-200 hover:-translate-y-0.5 shadow-2xs overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-[#1C1C1C] dark:text-slate-300">Raw Material Reorder</span>
-            <div className={`p-2 rounded-xl ${kpis.lowStockAlertsCount > 0 ? 'bg-rose-500/10 dark:bg-rose-400/20 text-rose-600 dark:text-rose-300' : 'bg-emerald-500/10 dark:bg-emerald-400/20 text-emerald-600 dark:text-emerald-300'}`}>
+        <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 sm:p-6 border border-slate-100 dark:border-slate-700/80 shadow-xs flex flex-col justify-between min-h-[140px] transition-all hover:shadow-sm">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
+              Raw Material Reorder
+            </span>
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
+              kpis.lowStockAlertsCount > 0 
+                ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-500 dark:text-rose-400 border-rose-100 dark:border-rose-800/40' 
+                : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-500 dark:text-emerald-400 border-emerald-100 dark:border-emerald-800/40'
+            }`}>
               <AlertTriangle className="w-4.5 h-4.5" />
             </div>
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 mt-2">
             <div className="flex items-baseline gap-1.5">
-              <span className={`text-2xl font-extrabold tracking-tight ${kpis.lowStockAlertsCount > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+              <span className={`text-3xl font-extrabold tracking-tight font-mono ${kpis.lowStockAlertsCount > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                 {kpis.lowStockAlertsCount || 0} Items
               </span>
-              <span className="text-xs font-semibold text-[#8C8C8C] dark:text-slate-400">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
                 {kpis.lowStockAlertsCount > 0 ? 'Below Min' : 'Healthy'}
               </span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border inline-flex items-center gap-0.5 ${
                 kpis.lowStockAlertsCount > 0 
-                  ? 'bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-500/20' 
-                  : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/20'
+                  ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-400 border-rose-200/80 dark:border-rose-800/50' 
+                  : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400 border-emerald-200/80 dark:border-emerald-800/50'
               }`}>
                 {kpis.lowStockItemsDescription || 'All Stock Healthy'}
               </span>
